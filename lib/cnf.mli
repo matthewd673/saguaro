@@ -1,9 +1,13 @@
 type var = string
 
-type term =
-  | Not of var
+type lit =
   | Var of var
+  | Not of var
 
-type clause = term list
+type clause = lit list
 
 type t = clause list
+
+(** [to_string cnf]
+    Convert the formula [cnf] to a string representation. *)
+val to_string : t -> string
