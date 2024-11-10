@@ -1,7 +1,5 @@
 open Cnf
 
-exception Contradiction
-
 type assignment = Cnf.var * bool
 
 let string_of_assignment (v, b) =
@@ -13,7 +11,7 @@ let var_of_lit = function
   | Not var -> var
 ;;
 
-let inverse_of_lit = function
+let inv_of_lit = function
   | Var var -> Not var
   | Not var -> Var var
 ;;
@@ -23,15 +21,11 @@ let sat_of_lit = function
   | Not _ -> false
 ;;
 
-let in_list e =
-  List.exists (fun x -> x = e)
-;;
-
 let distinct l =
   let rec aux acc = function
     | [] -> acc (* Don't bother reversing because order doesn't matter *)
     | h :: t ->
-        aux (if in_list h acc then acc else (h :: acc)) t
+        aux (if List.mem h acc then acc else (h :: acc)) t
   in
   aux [] l
 ;;
@@ -41,8 +35,8 @@ let collect_vars cnf =
 ;;
 
 let bool_of_lit trues = function
-  | Not var -> not (in_list var trues)
-  | Var var -> in_list var trues
+  | Not var -> not (List.mem var trues)
+  | Var var -> List.mem var trues
 
 let evaluate_clause trues c = (* If a var is not in [trues] it is false *)
   List.map (fun l -> bool_of_lit trues l) c
@@ -51,28 +45,33 @@ let evaluate_clause trues c = (* If a var is not in [trues] it is false *)
 
 let evaluate cnf trues =
   cnf
-  |> List.filter (fun c -> not (List.is_empty c))
   |> List.map (evaluate_clause trues)
   |> List.fold_left (&&) true
 ;;
 
-let unit_prop_on_clause lit = function
-  (* Remove unit clause *)
-  | [l] when l = lit -> []
-  (* Inverse unit clause is contradiction *)
-  | [l] when l = inverse_of_lit lit -> raise Contradiction
-  (* Clauses that contain lit will be satisfied if lit is *)
-  | c when in_list lit c -> []
-  (* Clauses that contain !lit can never be satisfied by that *)
-  | c -> List.filter (fun x -> x <> inverse_of_lit lit) c
+let is_lit_unit lit = function
+  | [l] when l = lit -> true
+  | _ -> false
 ;;
 
 let unit_prop_lit lit cnf =
-  sat_of_lit lit, List.map (unit_prop_on_clause lit) cnf
+  let transform = cnf
+  (* Remove unit clauses of lit *)
+  |> List.filter (fun c -> not (is_lit_unit lit c))
+  (* Remove clauses containing the literal *)
+  |> List.filter (fun c -> not (List.mem lit c))
+  (* Remove the inverse polarity of the literal from clauses it appears in.
+     If the inverse polarity is in a unit clause, the clause will become empty
+     which is UNSAT. *)
+  |> List.map (List.filter (fun l -> l <> inv_of_lit lit))
+  in
+
+  sat_of_lit lit, transform
 ;;
 
 let unit_prop cnf =
   let rec aux assignments cnf =
+    (* Search for units each time since this may cascade *)
     let units = cnf
     |> List.filter (fun c -> List.length c = 1)
     |> List.map (fun u -> List.hd u)
@@ -82,8 +81,8 @@ let unit_prop cnf =
       then assignments, cnf
       else
         let u = List.hd units in
-        let (u_a, cnf_res) = unit_prop_lit u cnf in
-        aux ((var_of_lit u, u_a) :: assignments) cnf_res
+        let (u_a, transform) = unit_prop_lit u cnf in
+        aux ((var_of_lit u, u_a) :: assignments) transform
   in
   aux [] cnf
 ;;
@@ -91,14 +90,14 @@ let unit_prop cnf =
 let find_pure_lits cnf =
   let lits = List.flatten cnf in
   lits
-  |> List.filter (fun x -> not (in_list (inverse_of_lit x) lits))
-  |> distinct
+  |> List.filter (fun x -> not (List.mem (inv_of_lit x) lits))
+  |> distinct (* Pure lits will likely occur multiple times *)
 ;;
 
 let pure_lit_elim cnf =
   let pure_lits = find_pure_lits cnf in
   List.map (fun l -> var_of_lit l, sat_of_lit l) pure_lits,
-  List.map (List.filter (fun x -> not (in_list x pure_lits))) cnf
+  List.map (List.filter (fun x -> not (List.mem x pure_lits))) cnf
 ;;
 
 let brute_force cnf =

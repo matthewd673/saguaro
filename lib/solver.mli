@@ -1,5 +1,3 @@
-exception Contradiction
-
 type assignment = Cnf.var * bool
 
 (** [string_of_assignment a]
@@ -19,9 +17,7 @@ val brute_force : Cnf.t -> bool
 
 (** [unit_prop cnf]
     Perform unit propagation on [cnf] until no units remain.
-    Returns: A list of assignments and a simplified formula.
-    Throws: [Contradiction] if there are contradictory unit clauses
-            (e.g. [a && !a]) *)
+    Returns: A list of assignments and a simplified formula. *)
 val unit_prop : Cnf.t -> assignment list * Cnf.t
 
 (** [pure_lit_elim cnf]

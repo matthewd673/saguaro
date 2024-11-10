@@ -1,11 +1,10 @@
 open OUnit2
 open Saguaro
-open Solver
 
 let assert_mset_equal a b =
   assert_equal (List.length a) (List.length b);
   a
-  |> List.map (fun x -> (List.exists (fun y -> x = y) b))
+  |> List.map (fun x -> (List.mem x b))
   |> List.fold_left (&&) true
   |> assert_equal true
 ;;
@@ -28,7 +27,7 @@ let eval_tests =
    [[Var "a"]], [], false;
    [[Var "a"; Not "a"]], [], true;
    [[Var "a"; Not "a"]], ["a"], true;
-   [[Var "a"; Not "a"]; []], ["a"], true;
+   [[Var "a"; Not "a"]; []], ["a"], false;
    [[Var "a"]; [Not "a"]], [], false;
    [[Var "a"]; [Not "a"]], ["a"], false;
    [[Var "a"]; [Var "b"]], ["a"], false;
@@ -58,30 +57,19 @@ let make_unit_prop_test (cnf, exp_assign, exp_cnf) =
 let unit_prop_tests =
   List.map make_unit_prop_test
   [[], [], [];
-   [[Var "a"]], ["a", true], [[]];
+   [[Var "a"]], ["a", true], [];
+   [[Not "a"]], ["a", false], [];
+   [[Var "a"]; [Var "b"]], ["a", true; "b", true], [];
+   [[Var "a"]; [Not "a"]], ["a", true], [[]];
+   [[Var "a"]; [Var "a"; Var "b"]], ["a", true], [];
+   [[Var "a"]; [Not "a"; Var "b"]], ["a", true; "b", true], [];
+   [[Var "a"]; [Not "a"; Var "b"; Var "c"]], ["a", true], [[Var "b"; Var "c"]];
+   [[Var "a"]; [Not "a"]], ["a", true], [[]];
    [[Var "a"; Var "b"]; [Var "a"]; [Not "b"]],
-    ["a", true; "b", false],
-    [[]; []; []];
+    ["a", true; "b", false], [];
    [[Var "a"]; [Not "b"]; [Var "c"; Not "d"]],
     ["a", true; "b", false],
-    [[]; []; [Var "c"; Not "d"]];
-   ]
-;;
-
-let test_unit_prop_contradiction cnf _ =
-  assert_raises Contradiction (fun () -> Solver.unit_prop cnf)
-;;
-
-let make_unit_prop_contradiction_test cnf =
-  let cnf_str = Cnf.to_string cnf in
-  (Printf.sprintf "Unit prop raises Contradiction on %s" cnf_str) >::
-    (fun ctx -> test_unit_prop_contradiction cnf ctx)
-;;
-
-let unit_prop_contradiction_tests =
-  List.map make_unit_prop_contradiction_test
-  [[[Var "a"]; [Not "a"]];
-   [[Var "a"]; [Not "a"; Var "b"]; [Not "b"]];
+    [[Var "c"; Not "d"]];
    ]
 ;;
 
@@ -115,7 +103,6 @@ let suite =
   "Saguaro tests" >:::
     eval_tests
     @ unit_prop_tests
-    @ unit_prop_contradiction_tests
     @ pure_lit_elim_tests
 ;;
 
