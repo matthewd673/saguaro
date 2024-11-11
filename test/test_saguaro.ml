@@ -1,12 +1,13 @@
 open OUnit2
 open Saguaro
+open Solver
 
-let assert_mset_equal a b =
-  assert_equal (List.length a) (List.length b);
-  a
-  |> List.map (fun x -> (List.mem x b))
-  |> List.fold_left (&&) true
-  |> assert_equal true
+let string_of_assign_map assign_map =
+  assign_map
+  |> VarMap.to_list
+  |> List.map (fun (v, b) -> Printf.sprintf "%s=%b" v b)
+  |> String.concat "; "
+  |> Printf.sprintf "[%s]"
 ;;
 
 let test_eval cnf trues sat _ =
@@ -38,64 +39,67 @@ let eval_tests =
    ]
 ;;
 
-let test_unit_prop cnf (exp_assign, exp_cnf) _ =
-  let (act_assign, act_cnf) = Solver.unit_prop cnf in
-  assert_mset_equal exp_assign act_assign;
+let test_unit_prop cnf (exp_cnf, exp_assign) _ =
+  let (act_cnf, act_assign) = Solver.unit_prop cnf in
+  assert_equal exp_assign act_assign;
   assert_equal exp_cnf act_cnf;
 ;;
 
-let make_unit_prop_test (cnf, exp_assign, exp_cnf) =
+let make_unit_prop_test (cnf, exp_cnf, exp_assign) =
   let cnf_str = Cnf.to_string cnf in
-  let exp_assign_str = String.concat "; "
-    (List.map (fun (v, b) -> Printf.sprintf "%s=%b" v b) exp_assign) in
+  let exp_assign_str = string_of_assign_map exp_assign in
   let exp_cnf_str = Cnf.to_string exp_cnf in
   (Printf.sprintf "Unit prop transforms %s -> %s with [%s]"
     cnf_str exp_cnf_str exp_assign_str) >::
-    (fun ctx -> test_unit_prop cnf (exp_assign, exp_cnf) ctx)
+    (fun ctx -> test_unit_prop cnf (exp_cnf, exp_assign) ctx)
 ;;
 
 let unit_prop_tests =
   List.map make_unit_prop_test
-  [[], [], [];
-   [[Var "a"]], ["a", true], [];
-   [[Not "a"]], ["a", false], [];
-   [[Var "a"]; [Var "b"]], ["a", true; "b", true], [];
-   [[Var "a"]; [Not "a"]], ["a", true], [[]];
-   [[Var "a"]; [Var "a"; Var "b"]], ["a", true], [];
-   [[Var "a"]; [Not "a"; Var "b"]], ["a", true; "b", true], [];
-   [[Var "a"]; [Not "a"; Var "b"; Var "c"]], ["a", true], [[Var "b"; Var "c"]];
-   [[Var "a"]; [Not "a"]], ["a", true], [[]];
+  [[], [], VarMap.empty;
+   [[Var "a"]], [], VarMap.of_list ["a", true];
+   [[Not "a"]], [], VarMap.of_list ["a", false];
+   [[Var "a"]; [Var "b"]], [], VarMap.of_list ["a", true; "b", true];
+   [[Var "a"]; [Not "a"]], [[]], VarMap.of_list ["a", true];
+   [[Var "a"]; [Var "a"; Var "b"]], [], VarMap.of_list ["a", true];
+   [[Var "a"]; [Not "a"; Var "b"]], [], VarMap.of_list ["a", true; "b", true];
+   [[Var "a"]; [Not "a"; Var "b"; Var "c"]],
+    [[Var "b"; Var "c"]],
+    VarMap.of_list ["a", true];
+   [[Var "a"]; [Not "a"]], [[]], VarMap.of_list ["a", true];
    [[Var "a"; Var "b"]; [Var "a"]; [Not "b"]],
-    ["a", true; "b", false], [];
+    [],
+    VarMap.of_list ["a", true; "b", false];
    [[Var "a"]; [Not "b"]; [Var "c"; Not "d"]],
-    ["a", true; "b", false],
-    [[Var "c"; Not "d"]];
+    [[Var "c"; Not "d"]],
+    VarMap.of_list ["a", true; "b", false];
    ]
 ;;
 
-let test_pure_lit_elim cnf (exp_assign, exp_cnf) _ =
-  let (act_assign, act_cnf) = Solver.pure_lit_elim cnf in
-  assert_mset_equal exp_assign act_assign;
+let test_pure_lit_elim cnf (exp_cnf, exp_assign) _ =
+  let (act_cnf, act_assign) = Solver.pure_lit_elim cnf in
+  assert_equal true (exp_assign = act_assign);
   assert_equal exp_cnf act_cnf;
 ;;
 
-let make_pure_lit_elim_test (cnf, exp_assign, exp_cnf) =
+let make_pure_lit_elim_test (cnf, exp_cnf, exp_assign) =
   let cnf_str = Cnf.to_string cnf in
-  let exp_assign_str = String.concat "; "
-    (List.map (fun (v, b) -> Printf.sprintf "%s=%b" v b) exp_assign) in
+  let exp_assign_str = string_of_assign_map exp_assign in
   let exp_cnf_str = Cnf.to_string exp_cnf in
   (Printf.sprintf "Pure lit elim transforms %s -> %s with [%s]"
     cnf_str exp_cnf_str exp_assign_str) >::
-    (fun ctx -> test_pure_lit_elim cnf (exp_assign, exp_cnf) ctx)
+    (fun ctx -> test_pure_lit_elim cnf (exp_cnf, exp_assign) ctx)
 ;;
 
 let pure_lit_elim_tests =
   List.map make_pure_lit_elim_test
   [[[Var "a"]; [Var "a"; Not "b"]; [Var "b"]],
-    ["a", true],
-    [[]; [Not "b"]; [Var "b"]];
-   [[Var "a"]; [Not "a"]], [], [[Var "a"]; [Not "a"]];
-   [[Var "a"; Not "b"]; [Not "a"]], ["b", false], [[Var "a"]; [Not "a"]];
+    [[]; [Not "b"]; [Var "b"]],
+    VarMap.of_list ["a", true];
+   [[Var "a"]; [Not "a"]], [[Var "a"]; [Not "a"]], VarMap.empty;
+   [[Var "a"; Not "b"]; [Not "a"]],
+    [[Var "a"]; [Not "a"]],
+    VarMap.of_list ["b", false];
    ]
 ;;
 

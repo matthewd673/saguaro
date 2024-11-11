@@ -1,10 +1,7 @@
 open Cnf
 
-type assignment = Cnf.var * bool
-
-let string_of_assignment (v, b) =
-  Printf.sprintf "%s=%b" v b
-;;
+module VarMap = Map.Make(String);;
+type assign_map = bool VarMap.t
 
 let var_of_lit = function
   | Var var -> var
@@ -31,11 +28,13 @@ let distinct l =
 ;;
 
 let collect_vars cnf =
-  distinct (List.map var_of_lit (List.flatten cnf))
+  cnf
+  |> List.flatten
+  |> List.map var_of_lit
 ;;
 
 let bool_of_lit trues = function
-  | Not var -> not (List.mem var trues)
+  | Not var -> not @@ List.mem var trues
   | Var var -> List.mem var trues
 
 let evaluate_clause trues c = (* If a var is not in [trues] it is false *)
@@ -66,11 +65,11 @@ let unit_prop_lit lit cnf =
   |> List.map (List.filter (fun l -> l <> inv_of_lit lit))
   in
 
-  sat_of_lit lit, transform
+  transform, sat_of_lit lit
 ;;
 
 let unit_prop cnf =
-  let rec aux assignments cnf =
+  let rec aux cnf assigns =
     (* Search for units each time since this may cascade *)
     let units = cnf
     |> List.filter (fun c -> List.length c = 1)
@@ -78,26 +77,55 @@ let unit_prop cnf =
     in
 
     if List.is_empty units
-      then assignments, cnf
+      then cnf, assigns
       else
         let u = List.hd units in
-        let (u_a, transform) = unit_prop_lit u cnf in
-        aux ((var_of_lit u, u_a) :: assignments) transform
+        let (transform, u_a) = unit_prop_lit u cnf in
+        aux transform (VarMap.add (var_of_lit u) u_a assigns)
   in
-  aux [] cnf
+  aux cnf VarMap.empty
 ;;
 
 let find_pure_lits cnf =
   let lits = List.flatten cnf in
   lits
   |> List.filter (fun x -> not (List.mem (inv_of_lit x) lits))
-  |> distinct (* Pure lits will likely occur multiple times *)
+;;
+
+let assign_pure_lits pure_lits =
+  let rec aux map = function
+    | [] -> map
+    | h :: t ->
+        aux (VarMap.add (var_of_lit h) (sat_of_lit h) map) t
+  in
+  aux VarMap.empty pure_lits
 ;;
 
 let pure_lit_elim cnf =
   let pure_lits = find_pure_lits cnf in
-  List.map (fun l -> var_of_lit l, sat_of_lit l) pure_lits,
-  List.map (List.filter (fun x -> not (List.mem x pure_lits))) cnf
+
+  List.map (List.filter (fun x -> not @@ List.mem x pure_lits)) cnf,
+  assign_pure_lits pure_lits
+;;
+
+let rec dpll cnf =
+  let (cnf, up_assign) = unit_prop cnf in
+  let (cnf, ple_assign) = pure_lit_elim cnf in
+
+  let assign = VarMap.union
+    (fun _ _ _ -> raise @@ Failure "Invalid assignments")
+    up_assign
+    ple_assign
+  in
+  match cnf with
+  | [] -> true (* No clauses is SAT *)
+  | cnf when List.mem [] cnf -> false (* An empty clause is always UNSAT *)
+  | cnf ->
+      let v = List.find
+        (fun x -> not @@ VarMap.mem x assign)
+        (collect_vars cnf)
+      in
+      dpll ([Var v] :: cnf) || dpll ([Not v] :: cnf)
 ;;
 
 let brute_force cnf =
@@ -107,6 +135,6 @@ let brute_force cnf =
         (aux cnf (h :: trues) t) ||
         (aux cnf trues t)
   in
-  let vars = collect_vars cnf in
+  let vars = distinct @@ collect_vars cnf in
   aux cnf [] vars
 ;;
