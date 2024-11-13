@@ -1,2 +1,10 @@
 (library
  (name saguaro))
+
+(ocamllex
+  (modules cnf_file_lexer)
+  (mode promote))
+
+(ocamlyacc
+  (modules cnf_file_parser)
+  (mode promote))
