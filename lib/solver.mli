@@ -1,4 +1,4 @@
-module VarMap : Map.S with type key = string
+module VarMap : Map.S with type key = int
 type assign_map = bool VarMap.t
 
 (** [evaluate cnf trues]

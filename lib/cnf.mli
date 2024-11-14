@@ -1,8 +1,6 @@
-type var = string
+type var = int
 
-type lit =
-  | Var of var
-  | Not of var
+type lit = int
 
 type clause = lit list
 

@@ -1,21 +1,12 @@
-open Cnf
-
-module VarMap = Map.Make(String);;
+module VarMap = Map.Make(Int);;
 type assign_map = bool VarMap.t
 
-let var_of_lit = function
-  | Var var -> var
-  | Not var -> var
+let var_of_lit =
+  abs
 ;;
 
-let inv_of_lit = function
-  | Var var -> Not var
-  | Not var -> Var var
-;;
-
-let sat_of_lit = function
-  | Var _ -> true
-  | Not _ -> false
+let sat_of_lit lit =
+  lit > 0
 ;;
 
 let distinct l =
@@ -33,19 +24,32 @@ let collect_vars cnf =
   |> List.map var_of_lit
 ;;
 
-let bool_of_lit trues = function
-  | Not var -> not @@ List.mem var trues
-  | Var var -> List.mem var trues
+let bool_of_lit trues lit =
+  if lit < 0
+    then not @@ List.mem (var_of_lit lit) trues
+    else List.mem (var_of_lit lit) trues
+;;
 
-let evaluate_clause trues c = (* If a var is not in [trues] it is false *)
-  List.map (fun l -> bool_of_lit trues l) c
-  |> List.fold_left (||) false
+let evaluate_clause trues = (* If a var is not in [trues] it is false *)
+  let rec aux = function
+    | [] -> false
+    | l :: t ->
+        if bool_of_lit trues l
+          then true
+          else aux t
+  in
+  aux
 ;;
 
 let evaluate cnf trues =
-  cnf
-  |> List.map (evaluate_clause trues)
-  |> List.fold_left (&&) true
+  let rec aux = function
+    | [] -> true
+    | c :: t ->
+        if not @@ evaluate_clause trues c
+          then false
+          else aux t
+  in
+  aux cnf
 ;;
 
 let is_lit_unit lit = function
@@ -56,15 +60,14 @@ let is_lit_unit lit = function
 let unit_prop_lit lit cnf =
   let transform = cnf
   (* Remove unit clauses of lit *)
-  |> List.filter (fun c -> not (is_lit_unit lit c))
+  |> List.filter (fun c -> not @@ is_lit_unit lit c)
   (* Remove clauses containing the literal *)
-  |> List.filter (fun c -> not (List.mem lit c))
+  |> List.filter (fun c -> not @@ List.mem lit c)
   (* Remove the inverse polarity of the literal from clauses it appears in.
      If the inverse polarity is in a unit clause, the clause will become empty
      which is UNSAT. *)
-  |> List.map (List.filter (fun l -> l <> inv_of_lit lit))
+  |> List.map (List.filter (fun l -> l <> -lit))
   in
-
   transform, sat_of_lit lit
 ;;
 
@@ -89,7 +92,7 @@ let unit_prop cnf =
 let find_pure_lits cnf =
   let lits = List.flatten cnf in
   lits
-  |> List.filter (fun x -> not (List.mem (inv_of_lit x) lits))
+  |> List.filter (fun x -> not @@ List.mem (-x) lits)
 ;;
 
 let assign_pure_lits pure_lits =
@@ -125,7 +128,7 @@ let rec dpll cnf =
         (fun x -> not @@ VarMap.mem x assign)
         (collect_vars cnf)
       in
-      dpll ([Var v] :: cnf) || dpll ([Not v] :: cnf)
+      dpll ([v] :: cnf) || dpll ([-v] :: cnf)
 ;;
 
 let brute_force cnf =

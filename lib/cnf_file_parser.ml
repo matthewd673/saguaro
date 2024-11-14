@@ -1,69 +1,61 @@
 type token =
-  | INDEX of (
-# 9 "lib/cnf_file_parser.mly"
+  | NUM of (
+# 7 "lib/cnf_file_parser.mly"
         int
 # 6 "lib/cnf_file_parser.ml"
 )
   | PROBLEM
   | CNF
   | END
-  | NOT
   | EOF
 
 open Parsing
 let _ = parse_error;;
 # 2 "lib/cnf_file_parser.mly"
-  open Cnf
-
   let parse_error s =
     raise @@ Failure s;
   ;;
-# 22 "lib/cnf_file_parser.ml"
+# 19 "lib/cnf_file_parser.ml"
 let yytransl_const = [|
   258 (* PROBLEM *);
   259 (* CNF *);
   260 (* END *);
-  261 (* NOT *);
     0 (* EOF *);
     0|]
 
 let yytransl_block = [|
-  257 (* INDEX *);
+  257 (* NUM *);
     0|]
 
 let yylhs = "\255\255\
 \001\000\002\000\003\000\003\000\004\000\004\000\005\000\005\000\
-\005\000\000\000"
+\000\000"
 
 let yylen = "\002\000\
 \003\000\004\000\000\000\002\000\002\000\002\000\000\000\002\000\
-\003\000\002\000"
+\002\000"
 
 let yydefred = "\000\000\
-\000\000\000\000\000\000\010\000\003\000\000\000\000\000\000\000\
-\001\000\004\000\000\000\002\000\008\000\005\000\000\000\006\000\
-\009\000"
+\000\000\000\000\000\000\009\000\003\000\000\000\000\000\000\000\
+\001\000\004\000\000\000\002\000\008\000\005\000\006\000"
 
 let yydgoto = "\002\000\
 \004\000\005\000\007\000\010\000\011\000"
 
-let yysindex = "\004\000\
-\000\255\000\000\003\255\000\000\000\000\006\255\008\000\008\255\
-\000\000\000\000\001\000\000\000\000\000\000\000\009\255\000\000\
-\000\000"
+let yysindex = "\003\000\
+\000\255\000\000\002\255\000\000\000\000\005\255\007\000\007\255\
+\000\000\000\000\001\000\000\000\000\000\000\000\000\000"
 
 let yyrindex = "\000\000\
 \000\000\000\000\000\000\000\000\000\000\000\000\255\254\000\000\
-\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
-\000\000"
+\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
 
 let yygindex = "\000\000\
 \000\000\000\000\000\000\000\000\000\000"
 
-let yytablesize = 262
+let yytablesize = 261
 let yytable = "\007\000\
-\016\000\003\000\007\000\007\000\001\000\006\000\008\000\009\000\
-\012\000\017\000\000\000\000\000\000\000\000\000\000\000\000\000\
+\015\000\003\000\007\000\001\000\006\000\008\000\009\000\012\000\
 \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
 \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
 \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
@@ -94,11 +86,11 @@ let yytable = "\007\000\
 \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
 \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
 \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
-\000\000\013\000\000\000\000\000\014\000\015\000"
+\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
+\000\000\013\000\000\000\000\000\014\000"
 
 let yycheck = "\001\001\
-\000\000\002\001\004\001\005\001\001\000\003\001\001\001\000\000\
-\001\001\001\001\255\255\255\255\255\255\255\255\255\255\255\255\
+\000\000\002\001\004\001\001\000\003\001\001\001\000\000\001\001\
 \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
 \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
 \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
@@ -129,18 +121,18 @@ let yycheck = "\001\001\
 \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
 \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
 \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
-\255\255\001\001\255\255\255\255\004\001\005\001"
+\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
+\255\255\001\001\255\255\255\255\004\001"
 
 let yynames_const = "\
   PROBLEM\000\
   CNF\000\
   END\000\
-  NOT\000\
   EOF\000\
   "
 
 let yynames_block = "\
-  INDEX\000\
+  NUM\000\
   "
 
 let yyact = [|
@@ -149,67 +141,59 @@ let yyact = [|
     let _1 = (Parsing.peek_val __caml_parser_env 2 : 'problem) in
     let _2 = (Parsing.peek_val __caml_parser_env 1 : 'clause_list) in
     Obj.repr(
-# 17 "lib/cnf_file_parser.mly"
+# 15 "lib/cnf_file_parser.mly"
                                 ( _1, _2 )
-# 155 "lib/cnf_file_parser.ml"
+# 147 "lib/cnf_file_parser.ml"
                : (int * int) * Cnf.lit list list))
 ; (fun __caml_parser_env ->
     let _3 = (Parsing.peek_val __caml_parser_env 1 : int) in
     let _4 = (Parsing.peek_val __caml_parser_env 0 : int) in
     Obj.repr(
-# 20 "lib/cnf_file_parser.mly"
-                                 ( _3, _4 )
-# 163 "lib/cnf_file_parser.ml"
+# 18 "lib/cnf_file_parser.mly"
+                             ( _3, _4 )
+# 155 "lib/cnf_file_parser.ml"
                : 'problem))
 ; (fun __caml_parser_env ->
     Obj.repr(
-# 23 "lib/cnf_file_parser.mly"
+# 21 "lib/cnf_file_parser.mly"
                           ( [] )
-# 169 "lib/cnf_file_parser.ml"
+# 161 "lib/cnf_file_parser.ml"
                : 'clause_list))
 ; (fun __caml_parser_env ->
     let _1 = (Parsing.peek_val __caml_parser_env 1 : 'clause_list) in
     let _2 = (Parsing.peek_val __caml_parser_env 0 : 'clause) in
     Obj.repr(
-# 24 "lib/cnf_file_parser.mly"
+# 22 "lib/cnf_file_parser.mly"
                           ( _2 :: _1 )
-# 177 "lib/cnf_file_parser.ml"
+# 169 "lib/cnf_file_parser.ml"
                : 'clause_list))
 ; (fun __caml_parser_env ->
     let _1 = (Parsing.peek_val __caml_parser_env 1 : 'indices) in
     Obj.repr(
-# 27 "lib/cnf_file_parser.mly"
+# 25 "lib/cnf_file_parser.mly"
                     ( _1 )
-# 184 "lib/cnf_file_parser.ml"
+# 176 "lib/cnf_file_parser.ml"
                : 'clause))
 ; (fun __caml_parser_env ->
     let _1 = (Parsing.peek_val __caml_parser_env 1 : 'indices) in
     Obj.repr(
-# 28 "lib/cnf_file_parser.mly"
+# 26 "lib/cnf_file_parser.mly"
                     ( _1 )
-# 191 "lib/cnf_file_parser.ml"
+# 183 "lib/cnf_file_parser.ml"
                : 'clause))
 ; (fun __caml_parser_env ->
     Obj.repr(
-# 31 "lib/cnf_file_parser.mly"
+# 29 "lib/cnf_file_parser.mly"
                       ( [] )
-# 197 "lib/cnf_file_parser.ml"
+# 189 "lib/cnf_file_parser.ml"
                : 'indices))
 ; (fun __caml_parser_env ->
     let _1 = (Parsing.peek_val __caml_parser_env 1 : 'indices) in
     let _2 = (Parsing.peek_val __caml_parser_env 0 : int) in
     Obj.repr(
-# 32 "lib/cnf_file_parser.mly"
-                      ( (Var (string_of_int _2)) :: _1 )
-# 205 "lib/cnf_file_parser.ml"
-               : 'indices))
-; (fun __caml_parser_env ->
-    let _1 = (Parsing.peek_val __caml_parser_env 2 : 'indices) in
-    let _3 = (Parsing.peek_val __caml_parser_env 0 : int) in
-    Obj.repr(
-# 33 "lib/cnf_file_parser.mly"
-                      ( (Not (string_of_int _3)) :: _1 )
-# 213 "lib/cnf_file_parser.ml"
+# 30 "lib/cnf_file_parser.mly"
+                      ( _2 :: _1 )
+# 197 "lib/cnf_file_parser.ml"
                : 'indices))
 (* Entry input *)
 ; (fun __caml_parser_env -> raise (Parsing.YYexit (Parsing.peek_val __caml_parser_env 0)))

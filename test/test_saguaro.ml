@@ -5,7 +5,7 @@ open Solver
 let string_of_assign_map assign_map =
   assign_map
   |> VarMap.to_list
-  |> List.map (fun (v, b) -> Printf.sprintf "%s=%b" v b)
+  |> List.map (fun (v, b) -> Printf.sprintf "%d=%b" v b)
   |> String.concat "; "
   |> Printf.sprintf "[%s]"
 ;;
@@ -16,7 +16,7 @@ let test_eval cnf trues sat _ =
 
 let make_eval_test (cnf, trues, sat) =
   let cnf_str = Cnf.to_string cnf in
-  let trues_str = String.concat "; " trues in
+  let trues_str = String.concat "; " (List.map string_of_int trues) in
   (Printf.sprintf "Eval %s when [%s] true -> %b" cnf_str trues_str sat) >::
     (fun ctx -> test_eval cnf trues sat ctx)
 ;;
@@ -24,18 +24,18 @@ let make_eval_test (cnf, trues, sat) =
 let eval_tests =
   List.map make_eval_test
   [[], [], true;
-   [[Var "a"]], ["a"], true;
-   [[Var "a"]], [], false;
-   [[Var "a"; Not "a"]], [], true;
-   [[Var "a"; Not "a"]], ["a"], true;
-   [[Var "a"; Not "a"]; []], ["a"], false;
-   [[Var "a"]; [Not "a"]], [], false;
-   [[Var "a"]; [Not "a"]], ["a"], false;
-   [[Var "a"]; [Var "b"]], ["a"], false;
-   [[Var "a"]; [Var "b"]], ["b"], false;
-   [[Var "a"]; [Var "b"]], ["a"; "b"], true;
-   [[Var "a"; Not "b"]; [Var "b"]], ["a"; "b"], true;
-   [[Var "a"]; [Not "b"]], ["a"], true;
+   [[1]], [1], true;
+   [[1]], [], false;
+   [[1; -1]], [], true;
+   [[1; -1]], [1], true;
+   [[1; -1]; []], [1], false;
+   [[1]; [-1]], [], false;
+   [[1]; [-1]], [1], false;
+   [[1]; [2]], [1], false;
+   [[1]; [2]], [2], false;
+   [[1]; [2]], [1; 2], true;
+   [[1; -2]; [2]], [1; 2], true;
+   [[1]; [-2]], [1], true;
    ]
 ;;
 
@@ -57,22 +57,16 @@ let make_unit_prop_test (cnf, exp_cnf, exp_assign) =
 let unit_prop_tests =
   List.map make_unit_prop_test
   [[], [], VarMap.empty;
-   [[Var "a"]], [], VarMap.of_list ["a", true];
-   [[Not "a"]], [], VarMap.of_list ["a", false];
-   [[Var "a"]; [Var "b"]], [], VarMap.of_list ["a", true; "b", true];
-   [[Var "a"]; [Not "a"]], [[]], VarMap.of_list ["a", true];
-   [[Var "a"]; [Var "a"; Var "b"]], [], VarMap.of_list ["a", true];
-   [[Var "a"]; [Not "a"; Var "b"]], [], VarMap.of_list ["a", true; "b", true];
-   [[Var "a"]; [Not "a"; Var "b"; Var "c"]],
-    [[Var "b"; Var "c"]],
-    VarMap.of_list ["a", true];
-   [[Var "a"]; [Not "a"]], [[]], VarMap.of_list ["a", true];
-   [[Var "a"; Var "b"]; [Var "a"]; [Not "b"]],
-    [],
-    VarMap.of_list ["a", true; "b", false];
-   [[Var "a"]; [Not "b"]; [Var "c"; Not "d"]],
-    [[Var "c"; Not "d"]],
-    VarMap.of_list ["a", true; "b", false];
+   [[1]], [], VarMap.of_list [1, true];
+   [[-1]], [], VarMap.of_list [1, false];
+   [[1]; [1]], [], VarMap.of_list [1, true; 1, true];
+   [[1]; [-1]], [[]], VarMap.of_list [1, true];
+   [[1]; [1; 2]], [], VarMap.of_list [1, true];
+   [[1]; [-1; 2]], [], VarMap.of_list [1, true; 2, true];
+   [[1]; [-1; 2; 3]], [[2; 3]], VarMap.of_list [1, true];
+   [[1]; [-1]], [[]], VarMap.of_list [1, true];
+   [[1; 2]; [1]; [-2]], [], VarMap.of_list [1, true; 2, false];
+   [[1]; [-2]; [3; -4]], [[3; -4]], VarMap.of_list [1, true; 2, false];
    ]
 ;;
 
@@ -93,13 +87,9 @@ let make_pure_lit_elim_test (cnf, exp_cnf, exp_assign) =
 
 let pure_lit_elim_tests =
   List.map make_pure_lit_elim_test
-  [[[Var "a"]; [Var "a"; Not "b"]; [Var "b"]],
-    [[]; [Not "b"]; [Var "b"]],
-    VarMap.of_list ["a", true];
-   [[Var "a"]; [Not "a"]], [[Var "a"]; [Not "a"]], VarMap.empty;
-   [[Var "a"; Not "b"]; [Not "a"]],
-    [[Var "a"]; [Not "a"]],
-    VarMap.of_list ["b", false];
+  [[[1]; [1; -2]; [2]], [[]; [-2]; [2]], VarMap.of_list [1, true];
+   [[1]; [-1]], [[1]; [-1]], VarMap.empty;
+   [[1; -2]; [-1]], [[1]; [-1]], VarMap.of_list [2, false];
    ]
 ;;
 

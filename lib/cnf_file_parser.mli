@@ -1,13 +1,12 @@
 type token =
-  | INDEX of (
-# 9 "lib/cnf_file_parser.mly"
+  | NUM of (
+# 7 "lib/cnf_file_parser.mly"
         int
 # 6 "lib/cnf_file_parser.mli"
 )
   | PROBLEM
   | CNF
   | END
-  | NOT
   | EOF
 
 val input :
