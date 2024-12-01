@@ -1,5 +1,4 @@
-module VarMap = Map.Make(Int);;
-type assign_map = bool VarMap.t
+module VarSet = Set.Make(Int);;
 
 let var_of_lit =
   abs
@@ -7,21 +6,6 @@ let var_of_lit =
 
 let sat_of_lit lit =
   lit > 0
-;;
-
-let distinct l =
-  let rec aux acc = function
-    | [] -> acc (* Don't bother reversing because order doesn't matter *)
-    | h :: t ->
-        aux (if List.mem h acc then acc else (h :: acc)) t
-  in
-  aux [] l
-;;
-
-let collect_vars cnf =
-  cnf
-  |> List.flatten
-  |> List.map var_of_lit
 ;;
 
 let bool_of_lit trues lit =
@@ -71,73 +55,74 @@ let unit_prop_lit lit cnf =
   transform, sat_of_lit lit
 ;;
 
-let unit_prop cnf =
-  let rec aux cnf assigns =
-    (* Search for units each time since this may cascade *)
-    let units = cnf
-    |> List.filter (fun c -> List.length c = 1)
-    |> List.map (fun u -> List.hd u)
-    in
+type unit_prop_result =
+  | Ok of Cnf.t * Assignments.t
+  | Conflict of Cnf.var
 
-    if List.is_empty units
-      then cnf, assigns
-      else
-        let u = List.hd units in
-        let (transform, u_a) = unit_prop_lit u cnf in
-        aux transform (VarMap.add (var_of_lit u) u_a assigns)
+let rec unit_prop cnf assign =
+  (* Search for units each time since this may cascade *)
+  let units = cnf
+  |> List.filter (fun c -> List.length c = 1)
+  |> List.map (fun u -> List.hd u)
   in
-  aux cnf VarMap.empty
+
+  if List.is_empty units
+    then Ok (cnf, assign)
+    else
+      let u = List.hd units in
+      (* Check for a conflict unit before propagating *)
+      if List.exists (fun l -> l = -u) units
+        then Conflict (var_of_lit u)
+        else begin
+          let (transform, u_a) = unit_prop_lit u cnf in
+          unit_prop transform (Assignments.add (var_of_lit u) u_a assign)
+        end
 ;;
 
 let find_pure_lits cnf =
+  let rec aux lit_set = function
+    | [] -> lit_set
+    | h :: t -> aux (VarSet.add h lit_set) t
+  in
   let lits = List.flatten cnf in
-  lits
-  |> List.filter (fun x -> not @@ List.mem (-x) lits)
+  let lit_set = aux VarSet.empty lits in
+  let pures = VarSet.filter (fun l -> not @@ VarSet.mem (-l) lit_set) lit_set in
+  VarSet.to_list pures
 ;;
 
-let assign_pure_lits pure_lits =
-  let rec aux map = function
-    | [] -> map
+let pure_lit_elim cnf assign =
+  let rec aux cnf assign = function
+    | [] -> cnf, assign
     | h :: t ->
-        aux (VarMap.add (var_of_lit h) (sat_of_lit h) map) t
+        let (transform, pl_assign) = unit_prop_lit h cnf in
+        aux transform (Assignments.add (var_of_lit h) pl_assign assign) t
   in
-  aux VarMap.empty pure_lits
+  aux cnf assign (find_pure_lits cnf)
 ;;
 
-let pure_lit_elim cnf =
-  let pure_lits = find_pure_lits cnf in
-
-  List.map (List.filter (fun x -> not @@ List.mem x pure_lits)) cnf,
-  assign_pure_lits pure_lits
+let find_unassigned cnf assign =
+  let rec aux = function
+    | [] -> raise Not_found
+    | h :: t -> match List.find_opt (fun l -> not @@ Assignments.mem (var_of_lit l) assign) h with
+        | Some u -> var_of_lit u
+        | None -> aux t
+  in
+  aux cnf
 ;;
 
-let rec dpll cnf =
-  let (cnf, up_assign) = unit_prop cnf in
-  let (cnf, ple_assign) = pure_lit_elim cnf in
-
-  let assign = VarMap.union
-    (fun _ _ _ -> raise @@ Failure "Invalid assignments")
-    up_assign
-    ple_assign
+let dpll cnf =
+  let rec aux cnf assign =
+    match unit_prop cnf assign with
+    | Conflict _ -> false
+    | Ok (cnf, assign) -> begin
+      match cnf with
+      | [] -> true (* No clauses is SAT *)
+      | cnf when List.mem [] cnf -> false (* An empty clause is always UNSAT *)
+      | cnf ->
+          let v = find_unassigned cnf assign in
+          aux ([v] :: cnf) assign || aux ([-v] :: cnf) assign
+    end
   in
-  match cnf with
-  | [] -> true (* No clauses is SAT *)
-  | cnf when List.mem [] cnf -> false (* An empty clause is always UNSAT *)
-  | cnf ->
-      let v = List.find
-        (fun x -> not @@ VarMap.mem x assign)
-        (collect_vars cnf)
-      in
-      dpll ([v] :: cnf) || dpll ([-v] :: cnf)
-;;
-
-let brute_force cnf =
-  let rec aux cnf trues = function
-    | [] -> evaluate cnf trues
-    | h :: t ->
-        (aux cnf (h :: trues) t) ||
-        (aux cnf trues t)
-  in
-  let vars = distinct @@ collect_vars cnf in
-  aux cnf [] vars
+  let cnf, assign = pure_lit_elim cnf Assignments.empty in
+  aux cnf assign
 ;;
