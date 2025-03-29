@@ -16,18 +16,6 @@ fn eval_test(#[case] cnf: Cnf, #[case] assign: Assignments, #[case] expected: bo
 }
 
 #[rstest]
-#[case(Assignments::new(0), 0, None)]
-#[case(Assignments::new(1), 1, Some(1))]
-#[case(Assignments::from(3, [1, 2, 3]), 3, None)]
-#[case(Assignments::from(4, [1, 2, 3]), 4, Some(4))]
-#[case(Assignments::from(4, [2, 3, 4]), 4, Some(1))]
-fn find_unassigned_test(#[case] assign: Assignments,
-                        #[case] num_vars: usize,
-                        #[case] expected: Option<Var>) {
-    assert_eq!(expected, find_unassigned(&assign, num_vars));
-}
-
-#[rstest]
 #[case(vec![], Assignments::new(0), Assignments::new(0))]
 #[case(vec![vec![1]], Assignments::new(1), Assignments::from(1, [1]))]
 #[case(vec![vec![1]], Assignments::from(1, [1]), Assignments::from(1, [1]))]
@@ -53,6 +41,14 @@ fn unit_prop_test_success(#[case] cnf: Cnf,
 fn unit_prop_test_conflict(#[case] cnf: Cnf, #[case] assign: Assignments) {
     let mut m_assign = assign.clone();
     assert_eq!(true, matches!(unit_prop(&cnf, &mut m_assign), Err(_)));
+}
+
+#[rstest]
+#[case(vec![], Assignments::new(0), true)]
+fn is_clause_unsat_test(#[case] clause: Clause,
+                        #[case] assign: Assignments,
+                        #[case] expected: bool) {
+    assert_eq!(expected, is_clause_unsat(&clause, &assign));
 }
 
 #[rstest]

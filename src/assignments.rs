@@ -67,10 +67,6 @@ impl Assignments {
         self.var_assign[ind] = value;
     }
 
-    pub fn has_unassigned(&self) -> bool {
-        self.num_assigned != self.num_vars
-    }
-
     fn get_ind(lit: i32) -> usize {
         lit.abs() as usize - 1
     }
