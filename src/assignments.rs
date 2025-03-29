@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+use std::fmt::{Display, Formatter};
 use crate::cnf::{Lit, Var};
 
 const UNASSIGNED: u8 = 0;
@@ -88,5 +89,19 @@ impl Clone for Assignments {
 impl PartialEq for Assignments {
     fn eq(&self, other: &Self) -> bool {
         self.var_assign.eq(&other.var_assign)
+    }
+}
+
+impl Display for Assignments {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for i in 0..self.var_assign.len() {
+            f.write_fmt(format_args!("{}{}{}",
+                if self.var_assign[i] == FALSE { "-" } else { "" },
+                i + 1,
+                if i < self.var_assign.len() - 1 { " " } else { "" })
+            ).expect("An error occurred while formatting");
+        }
+
+        Ok(())
     }
 }
