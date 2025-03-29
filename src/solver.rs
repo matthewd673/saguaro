@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests;
 
-use crate::cnf::{Clause, Cnf, Lit, Var, Assignments};
+use crate::cnf::{Clause, Cnf, Lit, Var};
+use crate::assignments::Assignments;
 
 pub fn eval(cnf: &Cnf, assign: &Assignments) -> bool {
     cnf.iter()
@@ -78,7 +79,7 @@ fn unit_prop(cnf: &Cnf, assign: &mut Assignments) -> Result<(), Var> {
 
 fn get_unit_unassigned(clause: &Clause, assign: &Assignments) -> Option<Lit> {
     let mut all_unassigned = clause.iter()
-        .filter(|lit| !assign.is_assigned(lit));
+        .filter(|lit| !assign.is_assigned(&var_of_lit(lit)));
 
     // If this is a unit clause, then the first unassigned literal is the one we care about.
     // If there are more items in the iterator after the first, this isn't a unit clause.

@@ -1,6 +1,7 @@
 mod cnf;
 mod cnf_parser;
 mod solver;
+mod assignments;
 
 use std::env;
 use std::fs;
