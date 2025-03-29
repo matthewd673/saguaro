@@ -52,27 +52,25 @@ fn find_unassigned(assign: &Assignments, num_vars: usize) -> Option<Var> {
 }
 
 fn unit_prop(cnf: &Cnf, assign: &mut Assignments) -> Result<(), Var> {
-    // Ignore clauses that are already satisfied by another assignment
-    let unsat_clauses: Vec<&Clause> = cnf.iter()
-        .filter(|clause| !clause.iter().any(|lit| assign.is_sat(lit)))
-        .collect();
-
     loop {
-        let mut units = unsat_clauses.iter()
+        let units: Vec<Lit> = cnf.iter()
+            // Ignore clauses that are already satisfied by another assignment
+            .filter(|clause| !clause.iter().any(|lit| assign.is_sat(lit)))
             // If the clause has a single unassigned literal, return it
             .map(|clause| get_unit_unassigned(clause, &assign))
             // Ignore clauses that don't have exactly one unassigned literal
             .filter(|u| matches!(u, Some(_)))
-            .map(|u| u.unwrap());
+            .map(|u| u.unwrap())
+            .collect();
 
-        match units.next() {
+        match units.get(0) {
             Some(u) => {
                 // Check for a conflict before propagating
-                if units.any(|lit| lit == -u) {
+                if units.contains(&-u) {
                     break Err(var_of_lit(&u))
                 }
 
-                assign.put(u);
+                assign.put(*u);
             },
             None => break Ok(()),
         }

@@ -55,7 +55,7 @@ impl Assignments {
     }
 
     pub fn put(&mut self, lit: Lit) {
-        let ind = Self::get_ind(lit.abs());
+        let ind = Self::get_ind(lit);
 
         if self.var_assign[ind] != UNASSIGNED {
             panic!()
@@ -70,8 +70,8 @@ impl Assignments {
         self.num_assigned != self.num_vars
     }
 
-    fn get_ind(var: Var) -> usize {
-        var as usize - 1
+    fn get_ind(lit: i32) -> usize {
+        lit.abs() as usize - 1
     }
 }
 
