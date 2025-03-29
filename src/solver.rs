@@ -77,15 +77,17 @@ fn unit_prop(cnf: &Cnf, assign: &mut Assignments) -> Result<(), Var> {
 }
 
 fn get_unit_unassigned(clause: &Clause, assign: &Assignments) -> Option<Lit> {
-    let unassigned: Vec<&Lit> = clause.iter()
-        .filter(|lit| !assign.is_assigned(lit))
-        .collect();
+    let mut all_unassigned = clause.iter()
+        .filter(|lit| !assign.is_assigned(lit));
 
-    if unassigned.len() != 1 {
-        None
+    // If this is a unit clause, then the first unassigned literal is the one we care about.
+    // If there are more items in the iterator after the first, this isn't a unit clause.
+    let first_unassigned = all_unassigned.next();
+    if !matches!(first_unassigned, None) && matches!(all_unassigned.next(), None) {
+        Some(*first_unassigned.unwrap())
     }
     else {
-        Some(**unassigned.get(0).unwrap())
+        None
     }
 }
 
