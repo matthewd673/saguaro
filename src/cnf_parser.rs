@@ -1,8 +1,8 @@
 use crate::cnf;
 
 pub struct ProblemDef {
-    pub num_vars: i32,
-    pub num_clauses: i32,
+    pub num_vars: usize,
+    pub num_clauses: usize,
 }
 
 pub fn parse(str: String) -> (ProblemDef, cnf::Cnf) {
@@ -18,7 +18,7 @@ pub fn parse(str: String) -> (ProblemDef, cnf::Cnf) {
 }
 
 fn parse_prob_def(line: &str) -> Option<ProblemDef> {
-    let mut words: Vec<&str> = line.split(' ').collect();
+    let words: Vec<&str> = line.split(' ').collect();
     if words.len() != 4
         || !matches!(words[0], "p")
         || !matches!(words[1], "cnf") {
@@ -32,7 +32,7 @@ fn parse_prob_def(line: &str) -> Option<ProblemDef> {
 }
 
 fn parse_clause(line: &str) -> Option<cnf::Clause> {
-    let mut words: Vec<&str> = line.split(' ').collect();
+    let words: Vec<&str> = line.split(' ').collect();
     if words.last() != Some(&"0") {
         return None;
     }

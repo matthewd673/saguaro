@@ -1,5 +1,6 @@
 mod cnf;
 mod cnf_parser;
+mod solver;
 
 use std::env;
 use std::fs;
@@ -20,5 +21,8 @@ fn main() {
     let (prob_def, cnf) = cnf_parser::parse(contents);
     println!("Solving problem with: vars={}, clauses={}", prob_def.num_vars, prob_def.num_clauses);
 
-    println!("{:?}", cnf);
+    match solver::dpll(&cnf, prob_def.num_vars) {
+        Ok(_) => println!("SAT"),
+        Err(()) => println!("UNSAT"),
+    };
 }
