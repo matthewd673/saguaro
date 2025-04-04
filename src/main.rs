@@ -1,5 +1,5 @@
 mod cnf;
-mod cnf_parser;
+mod parser;
 mod solver;
 mod assignments;
 
@@ -18,7 +18,8 @@ fn main() {
     // Load and parse CNF file
     let contents = fs::read_to_string(filename.unwrap())
         .expect("Failed to read cnf file");
-    let (prob_def, cnf) = cnf_parser::parse(contents);
+    let (prob_def, cnf) = parser::parse(contents)
+        .expect("Failed to parse cnf");
 
     // Solve
     let solution = get_solution(solver::dpll(&cnf, prob_def.num_vars));
@@ -26,12 +27,14 @@ fn main() {
 }
 
 /**
- * Given a result, get a string representation of the solution. The output format is according to
- * the SAT Competition requirements: https://satcompetition.github.io/2024/output.html
+ * Given a result, get a string representation of the solution. The output is
+ * in the format expected by the SAT Competition:
+ * https://satcompetition.github.io/2024/output.html
  */
 pub fn get_solution(result: Result<Assignments, ()>) -> String {
     match result {
-        Ok(assign) => format!("s SATISFIABLE\nv {} 0", assign.to_string()),
+        Ok(assign) =>
+            format!("s SATISFIABLE\nv {} 0", assign.to_string()),
         Err(()) => String::from("s UNSATISFIABLE"),
     }
 }
