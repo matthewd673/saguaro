@@ -1,11 +1,5 @@
 *.swp
 *.swo
 .DS_Store
-
-_build
-_opam
-
-
-# Added by cargo
-
 /target
+/.idea
