@@ -43,6 +43,7 @@ pub fn dpll(cnf: &Cnf, num_vars: usize) -> Result<Assignments, ()> {
     }
 
     let mut assign = Assignments::new(num_vars);
+    pure_lit_assign(cnf, &mut assign, num_vars);
     aux(cnf, &mut assign, num_vars)
 }
 
@@ -77,25 +78,64 @@ fn unit_prop(cnf: &Cnf, assign: &mut Assignments) -> Result<(), Var> {
     }
 }
 
+fn pure_lit_assign(cnf: &Cnf, assign: &mut Assignments, num_vars: usize) {
+    let mut seen_lits: Vec<bool> = vec![false; num_vars * 2];
+    cnf.iter()
+        .filter(|clause| is_clause_unsat(clause, assign))
+        .flatten()
+        .for_each(|lit| {
+            let ind =
+                (lit.abs() - 1) as usize * 2 + if lit < &0 { 0 } else { 1 };
+            seen_lits[ind] = true;
+        });
+
+    let mut i = 0;
+    while i < seen_lits.len() {
+        let var = i as i32 / 2 + 1;
+        // Pure, negative
+        if seen_lits[i] && !seen_lits[i + 1] {
+            assign.put(-var);
+        }
+        // Pure, positive
+        else if !seen_lits[i] && seen_lits[i + 1] {
+            assign.put(var);
+        }
+        // Unused
+        else if !seen_lits[i] && !seen_lits[i + 1] {
+            assign.put(-var);
+        }
+
+        i += 2;
+    }
+}
+
+/**
+ * Determine is a given clause is _not_ satisfied by the given assignments.
+ */
 fn is_clause_unsat(clause: &Clause, assign: &Assignments) -> bool {
     !clause.iter().any(|lit| assign.is_sat(lit))
 }
 
+/**
+ * If exactly one literal in a given clause is unassigned, then return it.
+ */
 fn get_unit_unassigned(clause: &Clause, assign: &Assignments) -> Option<Lit> {
     let mut all_unassigned = clause.iter()
         .filter(|lit| !assign.is_assigned(&var_of_lit(lit)));
 
-    // If this is a unit clause, then the first unassigned literal is the one we care about.
-    // If there are more items in the iterator after the first, this isn't a unit clause.
+    // If this is a unit clause, then the first unassigned literal is the one
+    // we care about. If there are more items in the iterator after the first,
+    // this isn't a unit clause.
     let first_unassigned = all_unassigned.next();
-    if !matches!(first_unassigned, None) && matches!(all_unassigned.next(), None) {
-        Some(*first_unassigned.unwrap())
-    }
-    else {
-        None
+    match (first_unassigned, all_unassigned.next()) {
+        (Some(_), None) => Some(*first_unassigned.unwrap()),
+        _ => None,
     }
 }
 
+/**
+ * Given a literal value, get the variable.
+ */
 fn var_of_lit(lit: &Lit) -> Var {
     lit.abs()
 }

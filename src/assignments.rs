@@ -28,8 +28,8 @@ impl Assignments {
         let mut assign_vec = vec![UNASSIGNED; num_vars];
         lits.iter()
             .for_each(|lit| {
-                let var = lit.abs();
-                assign_vec[Self::get_ind(var)] = if lit > &0 { TRUE } else { FALSE }
+                assign_vec[Self::get_ind(lit.abs())] =
+                    if lit > &0 { TRUE } else { FALSE }
             });
 
         Assignments {

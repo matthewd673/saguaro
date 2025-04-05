@@ -45,6 +45,11 @@ fn unit_prop_test_conflict(#[case] cnf: Cnf, #[case] assign: Assignments) {
 
 #[rstest]
 #[case(vec![], Assignments::new(0), true)]
+#[case(vec![1], Assignments::from(1, []), true)]
+#[case(vec![1], Assignments::from(1, [1]), false)]
+#[case(vec![1], Assignments::from(1, [-1]), true)]
+#[case(vec![1, 2, 3], Assignments::from(3, [2]), false)]
+#[case(vec![1, 2, 3], Assignments::from(3, [-2]), true)]
 fn is_clause_unsat_test(#[case] clause: Clause,
                         #[case] assign: Assignments,
                         #[case] expected: bool) {
