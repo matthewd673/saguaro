@@ -2,6 +2,7 @@ mod cnf;
 mod parser;
 mod solver;
 mod assignments;
+mod impl_graph;
 
 use std::env;
 use std::fs;
@@ -18,11 +19,11 @@ fn main() {
     // Load and parse CNF file
     let contents = fs::read_to_string(filename.unwrap())
         .expect("Failed to read cnf file");
-    let (prob_def, cnf) = parser::parse(contents)
+    let cnf = parser::parse(contents)
         .expect("Failed to parse cnf");
 
     // Solve
-    let solution = get_solution(solver::dpll(&cnf, prob_def.num_vars));
+    let solution = get_solution(solver::solve(&cnf));
     println!("{solution}");
 }
 

@@ -2,72 +2,94 @@ use super::*;
 use rstest::*;
 
 #[rstest]
-#[case(vec![], Assignments::new(0), true)]
-#[case(vec![vec![1], vec![]], Assignments::from(1, [1]), false)]
-#[case(vec![vec![1]], Assignments::from(1, [1]), true)]
-#[case(vec![vec![1]], Assignments::new(1), false)]
-#[case(vec![vec![-1]], Assignments::from(1, [-1]), true)]
-#[case(vec![vec![-1]], Assignments::from(1, [1]), false)]
-#[case(vec![vec![1, -1]], Assignments::from(1, [1]), true)]
-#[case(vec![vec![1], vec![-1]], Assignments::from(1, [1]), false)]
-#[case(vec![vec![1, 2], vec![-2], vec![3]], Assignments::from(3, [1, -2, 3]), true)]
-fn eval_test(#[case] cnf: Cnf, #[case] assign: Assignments, #[case] expected: bool) {
+#[case(0, vec![], vec![], true)]
+#[case(1, vec![vec![1], vec![]], vec![1], false)]
+#[case(1, vec![vec![1]], vec![1], true)]
+#[case(1, vec![vec![1]], vec![], false)]
+#[case(1, vec![vec![-1]], vec![-1], true)]
+#[case(1, vec![vec![-1]], vec![1], false)]
+#[case(1, vec![vec![1, -1]], vec![1], true)]
+#[case(1, vec![vec![1], vec![-1]], vec![1], false)]
+#[case(3, vec![vec![1, 2], vec![-2], vec![3]], vec![1, -2, 3], true)]
+fn eval_test(#[case] num_vars: usize,
+             #[case] clauses: Vec<Clause>,
+             #[case] assign_lits: Vec<Lit>,
+             #[case] expected: bool) {
+    let cnf = Cnf::new(clauses, num_vars);
+    let assign = Assignments::from(assign_lits, num_vars);
+
     assert_eq!(expected, eval(&cnf, &assign));
 }
 
 #[rstest]
-#[case(vec![], Assignments::new(0), Assignments::new(0))]
-#[case(vec![vec![1]], Assignments::new(1), Assignments::from(1, [1]))]
-#[case(vec![vec![1]], Assignments::from(1, [1]), Assignments::from(1, [1]))]
-#[case(vec![vec![-1]], Assignments::new(1), Assignments::from(1, [-1]))]
-#[case(vec![vec![1, 2, 3], vec![1]], Assignments::new(3), Assignments::from(3, [1]))]
-#[case(vec![vec![1, 2, 3], vec![1]], Assignments::from(3, []), Assignments::from(3, [1]))]
-#[case(vec![vec![1, 2, 3], vec![1]], Assignments::from(3, [3]), Assignments::from(3, [1, 3]))] // NOTE: 2 can have any value
-#[case(vec![vec![1, 2, 3], vec![-1], vec![-2]], Assignments::new(3), Assignments::from(3, [-1, -2, 3]))]
-#[case(vec![vec![1, 2], vec![1, 2, 3]], Assignments::new(3), Assignments::from(3, []))]
-#[case(vec![vec![1], vec![-2], vec![3, -4]], Assignments::new(4), Assignments::from(4, [1, -2]))]
-fn unit_prop_test_success(#[case] cnf: Cnf,
-                          #[case] assign: Assignments,
-                          #[case] exp_assign: Assignments) {
+#[case(0, vec![], vec![], vec![])]
+#[case(1, vec![vec![1]], vec![], vec![1])]
+#[case(1, vec![vec![1]], vec![1], vec![1])]
+#[case(1, vec![vec![-1]], vec![], vec![-1])]
+#[case(3, vec![vec![1, 2, 3], vec![1]], vec![], vec![1])]
+#[case(3, vec![vec![1, 2, 3], vec![1]], vec![], vec![1])]
+#[case(3, vec![vec![1, 2, 3], vec![1]], vec![3], vec![1, 3])] // NOTE: 2 can have any value
+#[case(3, vec![vec![1, 2, 3], vec![-1], vec![-2]], vec![], vec![-1, -2, 3])]
+#[case(3, vec![vec![1, 2], vec![1, 2, 3]], vec![], vec![])]
+#[case(4, vec![vec![1], vec![-2], vec![3, -4]], vec![], vec![1, -2])]
+fn unit_prop_test_success(#[case] num_vars: usize,
+                          #[case] clauses: Vec<Clause>,
+                          #[case] assign_lits: Vec<Lit>,
+                          #[case] exp_assign_lits: Vec<Lit>) {
+    let cnf = Cnf::new(clauses, num_vars);
+    let assign = Assignments::from(assign_lits, num_vars);
+    let exp_assign = Assignments::from(exp_assign_lits, num_vars);
+
     let mut m_assign = assign.clone();
     assert_eq!(Ok(()), unit_prop(&cnf, &mut m_assign));
     assert_eq!(exp_assign, m_assign);
 }
 
 #[rstest]
-#[case(vec![vec![1], vec![-1]], Assignments::new(1))]
-#[case(vec![vec![1, 2], vec![-1], vec![-2]], Assignments::new(2))]
-#[case(vec![vec![1], vec![-1, 2], vec![-2]], Assignments::new(2))]
-fn unit_prop_test_conflict(#[case] cnf: Cnf, #[case] assign: Assignments) {
+#[case(1, vec![vec![1], vec![-1]], vec![])]
+#[case(2, vec![vec![1, 2], vec![-1], vec![-2]], vec![])]
+#[case(2, vec![vec![1], vec![-1, 2], vec![-2]], vec![])]
+fn unit_prop_test_conflict(#[case] num_vars: usize,
+                           #[case] clauses: Vec<Clause>,
+                           #[case] assign_lits: Vec<Lit>) {
+    let cnf = Cnf::new(clauses, num_vars);
+    let assign = Assignments::from(assign_lits, num_vars);
+
     let mut m_assign = assign.clone();
     assert_eq!(true, matches!(unit_prop(&cnf, &mut m_assign), Err(_)));
 }
 
 #[rstest]
-#[case(vec![], Assignments::new(0), true)]
-#[case(vec![1], Assignments::from(1, []), true)]
-#[case(vec![1], Assignments::from(1, [1]), false)]
-#[case(vec![1], Assignments::from(1, [-1]), true)]
-#[case(vec![1, 2, 3], Assignments::from(3, [2]), false)]
-#[case(vec![1, 2, 3], Assignments::from(3, [-2]), true)]
-fn is_clause_unsat_test(#[case] clause: Clause,
-                        #[case] assign: Assignments,
+#[case(0, vec![], vec![], true)]
+#[case(1, vec![1], vec![], true)]
+#[case(1, vec![1], vec![1], false)]
+#[case(1, vec![1], vec![-1], true)]
+#[case(3, vec![1, 2, 3], vec![2], false)]
+#[case(3, vec![1, 2, 3], vec![-2], true)]
+fn is_clause_unsat_test(#[case] num_vars: usize,
+                        #[case] clause: Clause,
+                        #[case] assign_lits: Vec<Lit>,
                         #[case] expected: bool) {
+    let assign = Assignments::from(assign_lits, num_vars);
+
     assert_eq!(expected, is_clause_unsat(&clause, &assign));
 }
 
 #[rstest]
-#[case(vec![], Assignments::new(0), None)]
-#[case(vec![1], Assignments::new(1), Some(1))]
-#[case(vec![-1], Assignments::new(1), Some(-1))]
-#[case(vec![1, 2], Assignments::new(2), None)]
-#[case(vec![1, 2], Assignments::from(2, [1]), Some(2))]
-#[case(vec![1, 2], Assignments::from(2, [2]), Some(1))]
-#[case(vec![1, 2], Assignments::from(2, [-1]), Some(2))]
-#[case(vec![1, 2, 3, 4], Assignments::from(4, [1, 3, 4]), Some(2))]
-fn get_unit_unassigned_test(#[case] clause: Clause,
-                            #[case] assign: Assignments,
+#[case(0, vec![], vec![], None)]
+#[case(1, vec![1], vec![], Some(1))]
+#[case(1, vec![-1], vec![], Some(-1))]
+#[case(2, vec![1, 2], vec![], None)]
+#[case(2, vec![1, 2], vec![1], Some(2))]
+#[case(2, vec![1, 2], vec![2], Some(1))]
+#[case(2, vec![1, 2], vec![-1], Some(2))]
+#[case(4, vec![1, 2, 3, 4], vec![1, 3, 4], Some(2))]
+fn get_unit_unassigned_test(#[case] num_vars: usize,
+                            #[case] clause: Clause,
+                            #[case] assign_lits: Vec<Lit>,
                             #[case] expected: Option<Lit>) {
+    let assign = Assignments::from(assign_lits, num_vars);
+
     assert_eq!(expected, get_unit_unassigned(&clause, &assign));
 }
 

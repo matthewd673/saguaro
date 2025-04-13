@@ -5,16 +5,21 @@ use crate::cnf::{Clause, Cnf, Lit, Var};
 use crate::assignments::Assignments;
 
 pub fn eval(cnf: &Cnf, assign: &Assignments) -> bool {
-    cnf.iter()
+    cnf.clauses().iter()
         .all(|clause| clause.iter().any(|lit| assign.is_sat(lit)))
 }
 
-pub fn dpll(cnf: &Cnf, num_vars: usize) -> Result<Assignments, ()> {
-    fn aux(cnf: &Cnf, assign: &mut Assignments, num_vars: usize) -> Result<Assignments, ()> {
+pub fn solve(cnf: &Cnf) -> Result<Assignments, ()> {
+    dpll(cnf)
+}
+
+fn dpll(cnf: &Cnf) -> Result<Assignments, ()> {
+    fn aux(cnf: &Cnf, assign: &mut Assignments)
+        -> Result<Assignments, ()> {
         match unit_prop(cnf, assign) {
             Err(_) => Err(()),
             Ok(()) => {
-                let next_unassigned = cnf.iter()
+                let next_unassigned = cnf.clauses().iter()
                     .filter(|clause| is_clause_unsat(clause, assign))
                     .flatten()
                     .find(|lit| !assign.is_assigned(&var_of_lit(lit)));
@@ -29,8 +34,8 @@ pub fn dpll(cnf: &Cnf, num_vars: usize) -> Result<Assignments, ()> {
                 let mut assign_b = assign.clone();
                 assign_b.put(-next_var);
 
-                let branch_a = aux(cnf, &mut assign_a, num_vars);
-                let branch_b = aux(cnf, &mut assign_b, num_vars);
+                let branch_a = aux(cnf, &mut assign_a);
+                let branch_b = aux(cnf, &mut assign_b);
 
                 match (branch_a, branch_b) {
                     (Ok(a), Ok(_)) => Ok(a),
@@ -42,13 +47,12 @@ pub fn dpll(cnf: &Cnf, num_vars: usize) -> Result<Assignments, ()> {
         }
     }
 
-    let mut assign = Assignments::new(num_vars);
-    pure_lit_assign(cnf, &mut assign, num_vars);
-    aux(cnf, &mut assign, num_vars)
+    let mut assign = pre_process(cnf);
+    aux(cnf, &mut assign)
 }
 
 fn unit_prop(cnf: &Cnf, assign: &mut Assignments) -> Result<(), Var> {
-    let unsat_clauses: Vec<&Clause> = cnf.iter()
+    let unsat_clauses: Vec<&Clause> = cnf.clauses().iter()
         // Ignore clauses that are already satisfied by another assignment
         .filter(|clause| is_clause_unsat(clause, assign))
         .collect();
@@ -78,9 +82,15 @@ fn unit_prop(cnf: &Cnf, assign: &mut Assignments) -> Result<(), Var> {
     }
 }
 
-fn pure_lit_assign(cnf: &Cnf, assign: &mut Assignments, num_vars: usize) {
-    let mut seen_lits: Vec<bool> = vec![false; num_vars * 2];
-    cnf.iter()
+fn pre_process(cnf: &Cnf) -> Assignments {
+    let mut assign = Assignments::new(cnf.num_vars());
+    pure_lit_assign(cnf, &mut assign);
+    assign
+}
+
+fn pure_lit_assign(cnf: &Cnf, assign: &mut Assignments) {
+    let mut seen_lits: Vec<bool> = vec![false; cnf.num_vars() * 2];
+    cnf.clauses().iter()
         .filter(|clause| is_clause_unsat(clause, assign))
         .flatten()
         .for_each(|lit| {

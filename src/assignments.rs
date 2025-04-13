@@ -16,6 +16,10 @@ pub struct Assignments {
 }
 
 impl Assignments {
+    /**
+     * Create a new set of assignments with capacity for the given number of
+     * variables.
+     */
     pub fn new(num_vars: usize) -> Self {
         Assignments {
             num_vars,
@@ -24,7 +28,10 @@ impl Assignments {
         }
     }
 
-    pub fn from<const N: usize>(num_vars: usize, lits: [Lit; N]) -> Self {
+    /**
+     * Create a new set of assignments that satisfies the given set of literals.
+     */
+    pub fn from(lits: Vec<Lit>, num_vars: usize) -> Self {
         let mut assign_vec = vec![UNASSIGNED; num_vars];
         lits.iter()
             .for_each(|lit| {
@@ -33,12 +40,15 @@ impl Assignments {
             });
 
         Assignments {
-            num_vars: assign_vec.len(),
+            num_vars,
             num_assigned: lits.len(),
             var_assign: assign_vec,
         }
     }
 
+    /**
+     * Determine if a given literal is satisfied by the assignments.
+     */
     pub fn is_sat(&self, lit: &Lit) -> bool {
         let var = lit.abs();
         let ind = Self::get_ind(var);
@@ -51,10 +61,16 @@ impl Assignments {
         }
     }
 
+    /**
+     * Determine if the given variable is assigned.
+     */
     pub fn is_assigned(&self, var: &Var) -> bool {
         self.var_assign[Self::get_ind(*var)] != UNASSIGNED
     }
 
+    /**
+     * Write the satisfying assignment of the given literal to the assignments.
+     */
     pub fn put(&mut self, lit: Lit) {
         let ind = Self::get_ind(lit);
 

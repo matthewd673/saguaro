@@ -2,28 +2,23 @@ use std::iter::Peekable;
 use std::str::Chars;
 use crate::cnf::{Cnf, Clause};
 
-pub struct ProblemDef {
-    pub num_vars: usize,
-    pub num_clauses: usize,
-}
-
-pub fn parse(str: String) -> Option<(ProblemDef, Cnf)> {
+pub fn parse(str: String) -> Option<Cnf> {
     let mut chars = str.chars().peekable();
     skip_irrelevant(&mut chars);
 
-    let prob_def;
+    let (num_vars, num_clauses);
     match parse_problem_def(&mut chars) {
-        Some(p) => { prob_def = p; },
+        Some(p) => { (num_vars, num_clauses) = p; },
         None => { return None; },
     }
 
-    let cnf;
-    match parse_cnf(&mut chars) {
-        Some(c) => { cnf = c; },
+    let clauses;
+    match parse_clauses(&mut chars, num_clauses) {
+        Some(c) => { clauses = c; },
         None => { return None; },
     }
 
-    Some((prob_def, cnf))
+    Some(Cnf::new(clauses, num_vars))
 }
 
 fn eat(chars: &mut Peekable<Chars>, seq: &str) -> Result<(), ()> {
@@ -61,7 +56,7 @@ fn scan_int(chars: &mut Peekable<Chars>) -> Result<i32, ()> {
     }
 }
 
-fn parse_problem_def(chars: &mut Peekable<Chars>) -> Option<ProblemDef> {
+fn parse_problem_def(chars: &mut Peekable<Chars>) -> Option<(usize, usize)> {
     let res = eat(chars, "p cnf ");
     if matches!(res, Err(_)) {
         return None;
@@ -74,27 +69,27 @@ fn parse_problem_def(chars: &mut Peekable<Chars>) -> Option<ProblemDef> {
     match (vars_img, clauses_img) {
         (Ok(num_vars), Ok(num_clauses))
             if num_vars > 0 && num_clauses > 0 =>
-            Some(ProblemDef {
-                num_vars: num_vars as usize,
-                num_clauses: num_clauses as usize,
-            }),
+            Some((
+                num_vars as usize,
+                num_clauses as usize,
+            )),
         _ => None,
     }
 }
 
-fn parse_cnf(chars: &mut Peekable<Chars>) -> Option<Cnf> {
-    let mut cnf = Vec::new();
+fn parse_clauses(chars: &mut Peekable<Chars>, num_clauses: usize) -> Option<Vec<Clause>> {
+    let mut clauses = Vec::with_capacity(num_clauses);
 
     skip_irrelevant(chars);
     while !matches!(chars.peek(), None) {
         match parse_clause(chars) {
-            Some(clause) => { cnf.push(clause); },
+            Some(clause) => { clauses.push(clause); },
             None => { return None; },
         }
         skip_irrelevant(chars);
     }
 
-    Some(cnf)
+    Some(clauses)
 }
 
 fn parse_clause(chars: &mut Peekable<Chars>) -> Option<Clause> {

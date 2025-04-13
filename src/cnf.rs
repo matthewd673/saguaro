@@ -1,4 +1,25 @@
 pub type Var = i32;
 pub type Lit = i32;
 pub type Clause = Vec<Lit>;
-pub type Cnf = Vec<Clause>;
+
+pub struct Cnf {
+    clauses: Vec<Clause>,
+    num_vars: usize,
+}
+
+impl Cnf {
+    pub fn new(clauses: Vec<Clause>, num_vars: usize) -> Self {
+        Cnf {
+            clauses,
+            num_vars,
+        }
+    }
+
+    pub fn clauses(&self) -> &Vec<Clause> {
+        &self.clauses
+    }
+
+    pub fn num_vars(&self) -> usize {
+        self.num_vars
+    }
+}
