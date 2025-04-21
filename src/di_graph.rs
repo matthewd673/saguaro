@@ -4,6 +4,7 @@ mod tests;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
+#[derive(Debug)]
 struct Edges<N> {
     incoming: HashSet<N>,
     outgoing: HashSet<N>,
@@ -18,6 +19,7 @@ impl<N> Edges<N> {
     }
 }
 
+#[derive(Debug)]
 pub struct DiGraph<N> {
     nodes: HashMap<N, Edges<N>>,
 }
@@ -37,6 +39,22 @@ impl<N : Eq + Hash + Clone> DiGraph<N> {
      */
     pub fn add_node(&mut self, node: N) {
         self.nodes.insert(node, Edges::new());
+    }
+
+    /**
+     * Remove a node and all connecting edges from the graph. The node must
+     * already exist in the graph.
+     */
+    pub fn remove_node(&mut self, node: &N) {
+        let edges = self.nodes.remove(node).unwrap();
+        edges.outgoing.iter()
+            .for_each(|child| {
+                self.nodes.get_mut(child).unwrap().incoming.remove(node);
+            });
+        edges.incoming.iter()
+            .for_each(|parent| {
+                self.nodes.get_mut(parent).unwrap().outgoing.remove(node);
+            });
     }
 
     /**
@@ -64,5 +82,13 @@ impl<N : Eq + Hash + Clone> DiGraph<N> {
      */
     pub fn get_children(&self, node: &N) -> &HashSet<N> {
         &self.nodes.get(node).unwrap().outgoing
+    }
+
+    /**
+     * Determine if a given node is a root node. That is, if it has no parents.
+     * The given node must exist in the graph.
+     */
+    pub fn is_root(&self, node: &N) -> bool {
+        self.nodes.get(node).unwrap().incoming.len() == 0
     }
 }
