@@ -35,7 +35,7 @@ impl Assignments {
         let mut assign_vec = vec![UNASSIGNED; num_vars];
         lits.iter()
             .for_each(|lit| {
-                assign_vec[Self::get_ind(lit.abs())] =
+                assign_vec[Self::get_ind(&lit.abs())] =
                     if lit > &0 { TRUE } else { FALSE }
             });
 
@@ -50,8 +50,7 @@ impl Assignments {
      * Determine if a given literal is satisfied by the assignments.
      */
     pub fn is_sat(&self, lit: &Lit) -> bool {
-        let var = lit.abs();
-        let ind = Self::get_ind(var);
+        let ind = Self::get_ind(&lit.abs());
 
         if lit < &0 {
             self.var_assign[ind] == FALSE
@@ -65,25 +64,23 @@ impl Assignments {
      * Determine if the given variable is assigned.
      */
     pub fn is_assigned(&self, var: &Var) -> bool {
-        self.var_assign[Self::get_ind(*var)] != UNASSIGNED
+        self.var_assign[Self::get_ind(var)] != UNASSIGNED
     }
 
     /**
      * Write the satisfying assignment of the given literal to the assignments.
      */
-    pub fn put(&mut self, lit: Lit) {
+    pub fn put(&mut self, lit: &Lit) {
         let ind = Self::get_ind(lit);
 
-        if self.var_assign[ind] != UNASSIGNED {
-            panic!()
-        }
+        debug_assert!(self.var_assign[ind] == UNASSIGNED);
 
-        let value = if lit > 0 { TRUE } else { FALSE };
+        let value = if lit > &0 { TRUE } else { FALSE };
         self.num_assigned += 1;
         self.var_assign[ind] = value;
     }
 
-    fn get_ind(lit: i32) -> usize {
+    fn get_ind(lit: &i32) -> usize {
         lit.abs() as usize - 1
     }
 }

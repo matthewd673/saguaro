@@ -19,6 +19,10 @@ impl Cnf {
         &self.clauses
     }
 
+    pub fn add_clause(&mut self, clause: Clause) {
+        self.clauses.push(clause);
+    }
+
     pub fn num_vars(&self) -> usize {
         self.num_vars
     }

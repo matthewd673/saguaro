@@ -2,6 +2,7 @@
 mod tests;
 
 use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 
 #[derive(Debug)]
@@ -75,6 +76,10 @@ impl<N : Eq + Hash + Clone> DiGraph<N> {
         &self.nodes.get(node).unwrap().incoming
     }
 
+    pub fn contains_node(&self, node: &N) -> bool {
+        self.nodes.contains_key(node)
+    }
+
     /**
      * Get the set of all child nodes for a given node. That is, the set of all
      * nodes in the graph that have edges which originate from the given node
@@ -90,5 +95,18 @@ impl<N : Eq + Hash + Clone> DiGraph<N> {
      */
     pub fn is_root(&self, node: &N) -> bool {
         self.nodes.get(node).unwrap().incoming.len() == 0
+    }
+}
+
+impl<N : Display> Display for DiGraph<N> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.nodes.iter().for_each(|(node, edges)| {
+            edges.outgoing.iter().for_each(|child| {
+                f.write_fmt(format_args!("{node}->{child} "))
+                    .expect("An error occurred while formatting");
+            });
+        });
+
+        Ok(())
     }
 }
