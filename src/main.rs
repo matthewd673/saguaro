@@ -1,8 +1,6 @@
 mod cnf;
 mod parser;
 mod solver;
-mod assignments;
-mod di_graph;
 mod trail;
 
 use std::collections::HashSet;

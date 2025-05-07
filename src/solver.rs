@@ -3,12 +3,11 @@ mod tests;
 
 use std::collections::HashSet;
 use crate::cnf::{Clause, Cnf, Lit, Var};
-use crate::assignments::Assignments;
 use crate::trail::{Trail, TrailNode, TrailNodeDecorator};
 
-pub fn eval(cnf: &Cnf, assign: &Assignments) -> bool {
+pub fn eval(cnf: &Cnf, assign: &HashSet<Lit>) -> bool {
     cnf.clauses().iter()
-        .all(|clause| clause.iter().any(|lit| assign.is_sat(lit)))
+        .all(|clause| clause.iter().any(|lit| assign.contains(lit)))
 }
 
 pub fn solve(cnf: &mut Cnf) -> Result<HashSet<Lit>, ()> {
