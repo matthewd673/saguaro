@@ -1,146 +1,259 @@
 #[cfg(test)]
 mod tests;
 
+use std::collections::HashSet;
 use crate::cnf::{Clause, Cnf, Lit, Var};
 use crate::assignments::Assignments;
+use crate::trail::{Trail, TrailNode, TrailNodeDecorator};
 
 pub fn eval(cnf: &Cnf, assign: &Assignments) -> bool {
     cnf.clauses().iter()
         .all(|clause| clause.iter().any(|lit| assign.is_sat(lit)))
 }
 
-pub fn solve(cnf: &Cnf) -> Result<Assignments, ()> {
-    dpll(cnf)
+pub fn solve(cnf: &mut Cnf) -> Result<HashSet<Lit>, ()> {
+    // let mut assign = pre_process(cnf);
+    // let mut assign = Assignments::new(cnf.num_vars());
+    cdcl(cnf, &mut Trail::new())
 }
 
-fn dpll(cnf: &Cnf) -> Result<Assignments, ()> {
-    fn aux(cnf: &Cnf, assign: &mut Assignments)
-        -> Result<Assignments, ()> {
-        match unit_prop(cnf, assign) {
-            Err(_) => Err(()),
-            Ok(()) => {
-                let next_unassigned = cnf.clauses().iter()
-                    .filter(|clause| is_clause_unsat(clause, assign))
-                    .flatten()
-                    .find(|lit| !assign.is_assigned(&var_of_lit(lit)));
-
-                if matches!(next_unassigned, None) {
-                    return Ok(assign.clone())
-                }
-
-                let next_var = next_unassigned.unwrap();
-                let mut assign_a = assign.clone();
-                assign_a.put(*next_var);
-                let mut assign_b = assign.clone();
-                assign_b.put(-next_var);
-
-                let branch_a = aux(cnf, &mut assign_a);
-                let branch_b = aux(cnf, &mut assign_b);
-
-                match (branch_a, branch_b) {
-                    (Ok(a), Ok(_)) => Ok(a),
-                    (Ok(a), Err(())) => Ok(a),
-                    (Err(()), Ok(b)) => Ok(b),
-                    (Err(()), Err(())) => Err(()),
-                }
-            }
-        }
-    }
-
-    let mut assign = pre_process(cnf);
-    aux(cnf, &mut assign)
-}
-
-fn unit_prop(cnf: &Cnf, assign: &mut Assignments) -> Result<(), Var> {
+fn cdcl(cnf: &mut Cnf, trail: &mut Trail)
+    -> Result<HashSet<Lit>, ()> {
+    // Find all unsatisfied clauses
     let unsat_clauses: Vec<&Clause> = cnf.clauses().iter()
-        // Ignore clauses that are already satisfied by another assignment
-        .filter(|clause| is_clause_unsat(clause, assign))
+        .filter(|clause| is_clause_unsat(clause, &trail))
         .collect();
 
+    // Initial unit prop, to handle possible learned clause from last iteration
+    match unit_prop_and_learn(&unsat_clauses, trail) {
+        Err(()) => { return Err(()); }, // UNSAT
+        Ok(Some(clause)) => { // Learned a new clause
+            cnf.add_clause(clause);
+        }
+        Ok(None) => {} // Propagated without conflicts
+    }
+
+    // Find all unsatisfied clauses (again)
+    let unsat_clauses: Vec<&Clause> = cnf.clauses().iter()
+        .filter(|clause| is_clause_unsat(clause, &trail))
+        .collect();
+
+    // Find a literal to make an arbitrary decision on
+    let next_choice;
+    match get_next_unassigned(cnf, &trail) {
+        // If there are no unassigned variables, then we're done
+        // NOTE: There cannot be an unsat, fully-assigned clause at this point
+        None => {
+            return Ok(trail.get_assignments());
+        },
+        // Make an arbitrary decision on some undecided variable
+        Some(&lit) => {
+            next_choice = lit;
+        },
+    }
+
+    // Assign our guess
+    trail.push(next_choice, TrailNodeDecorator::Decision);
+
+    match unit_prop_and_learn(&unsat_clauses, trail) {
+        Err(()) => { return Err(()); }, // UNSAT
+        Ok(Some(clause)) => { // Learned a new clause
+            cnf.add_clause(clause);
+        }
+        Ok(None) => {} // Propagated without conflicts
+    }
+
+    cdcl(cnf, trail)
+}
+
+fn unit_prop_and_learn(unsat_clauses: &Vec<&Clause>,
+                       trail: &mut Trail) -> Result<Option<Clause>, ()> {
+    match unit_prop(unsat_clauses, trail) {
+        // Conflict at level zero is unrecoverable
+        Err(_) if trail.dec_level() == 0 => {
+            Err(())
+        },
+        // Learn from a conflict after level zero
+        Err(conflict) => {
+            let (uip, b_set) = find_uip(conflict, trail);
+
+            // Construct the reason set, i.e. the set of all nodes in the trail
+            // that have an edge connecting them to a member of the B set.
+            let mut reason: HashSet<Lit> = HashSet::new();
+            b_set.iter()
+                .for_each(|&l| {
+                    trail.get_parents(&l).iter()
+                        .filter(|p| !b_set.contains(p))
+                        .for_each(|&p| { reason.insert(p); });
+                });
+
+            // Make the cut
+            b_set.iter()
+                .for_each(|l| trail.remove(l));
+
+            // Learn the reason clause
+            let learned = get_inverse_clause(&reason);
+
+            // Backtrack non-chronologically
+            backtrack(trail);
+
+            Ok(Some(learned))
+        },
+        // No conflicts
+        Ok(()) => {
+            Ok(None)
+        },
+    }
+}
+
+fn backtrack(trail: &mut Trail) -> Option<Lit> {
+    // Remove all nodes later than current decision level - 2
+    let mut seen_levels = 0;
     loop {
-        let units: Vec<Lit> = unsat_clauses.iter()
-            // Re-compute new subset of unsat clauses since this can cascade
-            .filter(|clause| is_clause_unsat(clause, assign))
-            // If the clause has a single unassigned literal, return it
-            .map(|clause| get_unit_unassigned(clause, &assign))
-            // Ignore clauses that don't have exactly one unassigned literal
-            .filter(|u| matches!(u, Some(_)))
-            .map(|u| u.unwrap())
+        let top = trail.pop();
+
+        match top {
+            None => { break None; },
+            Some(TrailNode { decorator: TrailNodeDecorator::Decision, ..}) => {
+                seen_levels += 1;
+            },
+            _ => {},
+        }
+
+        if seen_levels == 2 {
+            break Some(top.unwrap().lit);
+        }
+    }
+}
+
+fn find_uip(conflict_var: Var, trail: &Trail) -> (Lit, HashSet<Lit>) {
+    let scope = trail.get_latest_decision_children();
+
+    let mut track: HashSet<Lit> = HashSet::new();
+    track.insert(conflict_var);
+    track.insert(-conflict_var);
+
+    let mut b_set: HashSet<Lit> = HashSet::new();
+
+    while track.len() != 1 {
+        let next = trail.get_latest_in_set(&track);
+
+        b_set.insert(next);
+
+        track.remove(&next);
+        let parents = trail.get_parents(&next);
+        parents.iter()
+            .filter(|p| scope.contains(p))
+            .for_each(|&p| {
+                track.insert(p);
+            });
+    }
+
+    (track.iter().next().unwrap().clone(), b_set)
+}
+
+fn unit_prop<'a>(unsat_clauses: &Vec<&Clause>,
+                 trail: &mut Trail) -> Result<(), Var> {
+    // Perform unit propagation until there are no unit clauses
+    loop {
+        // Refine our search to only the unit clauses
+        let unit_clauses: Vec<&&Clause> = unsat_clauses.iter()
+            // Re-filter unsat clauses since this will change between iterations
+            .filter(|clause| is_clause_unsat(clause, trail))
+            .filter(|clause| is_clause_unit(clause, trail))
             .collect();
 
-        match units.get(0) {
-            Some(u) => {
-                // Check for a conflict before propagating
-                if units.contains(&-u) {
-                    break Err(var_of_lit(&u))
+        match unit_clauses.get(0) {
+            Some(&&clause) => {
+                let unit = clause.iter()
+                    .find(|&lit|
+                        !trail.contains_node(lit) && !trail.contains_node(&-lit))
+                    .unwrap();
+
+                // Check if there is a conflicting unit literal
+                let conflicting_clause = unit_clauses.iter()
+                    .find(|clause|
+                        clause.iter()
+                            .any(|lit|
+                                !trail.contains_node(lit) && !trail.contains_node(&-lit) && unit.eq(&-lit)));
+
+                match conflicting_clause {
+                    Some(&&conflicting) => {
+                        trail.push(*unit, TrailNodeDecorator::Clause(clause.clone()));
+                        trail.push(-unit, TrailNodeDecorator::Clause(conflicting.clone()));
+                        break Err(var_of_lit(&unit));
+                    }
+                    None => {}, // Empty
                 }
 
-                assign.put(*u);
+                // There is no conflict, so add the satisfying assignment
+                trail.push(*unit, TrailNodeDecorator::Clause(clause.clone()));
             },
             None => break Ok(()),
         }
     }
 }
 
-fn pre_process(cnf: &Cnf) -> Assignments {
-    let mut assign = Assignments::new(cnf.num_vars());
-    pure_lit_assign(cnf, &mut assign);
-    assign
+// fn pre_process(cnf: &Cnf) -> Assignments {
+//     let mut assign = Assignments::new(cnf.num_vars());
+//     pure_lit_assign(cnf, &mut assign);
+//     assign
+// }
+
+// fn pure_lit_assign(cnf: &Cnf, assign: &mut Assignments) {
+//     let mut seen_lits: Vec<bool> = vec![false; cnf.num_vars() * 2];
+//     cnf.clauses().iter()
+//         .filter(|clause| is_clause_unsat(clause, assign))
+//         .flatten()
+//         .for_each(|lit| {
+//             let ind =
+//                 (lit.abs() - 1) as usize * 2 + if lit < &0 { 0 } else { 1 };
+//             seen_lits[ind] = true;
+//         });
+//
+//     let mut i = 0;
+//     while i < seen_lits.len() {
+//         let var = i as i32 / 2 + 1;
+//         // Pure, negative
+//         if seen_lits[i] && !seen_lits[i + 1] {
+//             assign.put(&-var);
+//         }
+//         // Pure, positive
+//         else if !seen_lits[i] && seen_lits[i + 1] {
+//             assign.put(&var);
+//         }
+//         // Unused
+//         else if !seen_lits[i] && !seen_lits[i + 1] {
+//             assign.put(&-var);
+//         }
+//
+//         i += 2;
+//     }
+// }
+
+fn get_inverse_clause(set: &HashSet<Lit>) -> Clause {
+    set.iter()
+        .map(|l| -l)
+        .collect()
 }
 
-fn pure_lit_assign(cnf: &Cnf, assign: &mut Assignments) {
-    let mut seen_lits: Vec<bool> = vec![false; cnf.num_vars() * 2];
+fn get_next_unassigned<'a>(cnf: &'a Cnf, trail: &Trail) -> Option<&'a Lit> {
     cnf.clauses().iter()
-        .filter(|clause| is_clause_unsat(clause, assign))
+        .filter(|clause| is_clause_unsat(clause, trail))
         .flatten()
-        .for_each(|lit| {
-            let ind =
-                (lit.abs() - 1) as usize * 2 + if lit < &0 { 0 } else { 1 };
-            seen_lits[ind] = true;
-        });
-
-    let mut i = 0;
-    while i < seen_lits.len() {
-        let var = i as i32 / 2 + 1;
-        // Pure, negative
-        if seen_lits[i] && !seen_lits[i + 1] {
-            assign.put(-var);
-        }
-        // Pure, positive
-        else if !seen_lits[i] && seen_lits[i + 1] {
-            assign.put(var);
-        }
-        // Unused
-        else if !seen_lits[i] && !seen_lits[i + 1] {
-            assign.put(-var);
-        }
-
-        i += 2;
-    }
+        .find(|&lit|
+            !trail.contains_node(lit) && !trail.contains_node(&-lit))
 }
 
-/**
- * Determine is a given clause is _not_ satisfied by the given assignments.
- */
-fn is_clause_unsat(clause: &Clause, assign: &Assignments) -> bool {
-    !clause.iter().any(|lit| assign.is_sat(lit))
+fn is_clause_unsat(clause: &Clause, trail: &Trail) -> bool {
+    !clause.iter().any(|lit| trail.contains_node(lit))
 }
 
-/**
- * If exactly one literal in a given clause is unassigned, then return it.
- */
-fn get_unit_unassigned(clause: &Clause, assign: &Assignments) -> Option<Lit> {
-    let mut all_unassigned = clause.iter()
-        .filter(|lit| !assign.is_assigned(&var_of_lit(lit)));
-
-    // If this is a unit clause, then the first unassigned literal is the one
-    // we care about. If there are more items in the iterator after the first,
-    // this isn't a unit clause.
-    let first_unassigned = all_unassigned.next();
-    match (first_unassigned, all_unassigned.next()) {
-        (Some(_), None) => Some(*first_unassigned.unwrap()),
-        _ => None,
-    }
+fn is_clause_unit(clause: &Clause, trail: &Trail) -> bool {
+    clause.iter()
+        .filter(|&lit|
+            !trail.contains_node(lit) && !trail.contains_node(&-lit))
+        .count() == 1
 }
 
 /**

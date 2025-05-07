@@ -2,11 +2,13 @@ mod cnf;
 mod parser;
 mod solver;
 mod assignments;
-mod impl_graph;
+mod di_graph;
+mod trail;
 
+use std::collections::HashSet;
 use std::env;
 use std::fs;
-use crate::assignments::Assignments;
+use crate::cnf::Lit;
 
 fn main() {
     // Get filename
@@ -19,11 +21,11 @@ fn main() {
     // Load and parse CNF file
     let contents = fs::read_to_string(filename.unwrap())
         .expect("Failed to read cnf file");
-    let cnf = parser::parse(contents)
+    let mut cnf = parser::parse(contents)
         .expect("Failed to parse cnf");
 
     // Solve
-    let solution = get_solution(solver::solve(&cnf));
+    let solution = get_solution(solver::solve(&mut cnf), cnf.num_vars());
     println!("{solution}");
 }
 
@@ -32,10 +34,24 @@ fn main() {
  * in the format expected by the SAT Competition:
  * https://satcompetition.github.io/2024/output.html
  */
-pub fn get_solution(result: Result<Assignments, ()>) -> String {
+fn get_solution(result: Result<HashSet<Lit>, ()>, num_vars: usize) -> String {
     match result {
         Ok(assign) =>
-            format!("s SATISFIABLE\nv {} 0", assign.to_string()),
+            format!("s SATISFIABLE\nv {}0",
+                    get_assignments_str(&assign, num_vars as i32)),
         Err(()) => String::from("s UNSATISFIABLE"),
     }
+}
+
+fn get_assignments_str(assignments: &HashSet<Lit>, num_vars: i32) -> String {
+    (1..num_vars + 1).fold(String::new(), |acc, var| {
+        let lit = if assignments.contains(&var) {
+            var.to_string()
+        }
+        else {
+            (-var).to_string()
+        };
+
+        format!("{}{} ", acc, lit)
+    })
 }
