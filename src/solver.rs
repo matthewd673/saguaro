@@ -5,6 +5,9 @@ use std::collections::HashSet;
 use crate::cnf::{Clause, Cnf, Lit, Var};
 use crate::trail::{Trail, TrailNode, TrailNodeDecorator};
 
+// Kappa denotes the conflict node
+const KAPPA: Lit = 0;
+
 pub fn eval(cnf: &Cnf, assign: &HashSet<Lit>) -> bool {
     cnf.clauses().iter()
         .all(|clause| clause.iter().any(|lit| assign.contains(lit)))
@@ -18,6 +21,7 @@ pub fn solve(cnf: &mut Cnf) -> Result<HashSet<Lit>, ()> {
 
 fn cdcl(cnf: &mut Cnf, trail: &mut Trail)
     -> Result<HashSet<Lit>, ()> {
+
     // Find all unsatisfied clauses
     let unsat_clauses: Vec<&Clause> = cnf.clauses().iter()
         .filter(|clause| is_clause_unsat(clause, &trail))
@@ -69,25 +73,25 @@ fn unit_prop_and_learn(unsat_clauses: &Vec<&Clause>,
                        trail: &mut Trail) -> Result<Option<Clause>, ()> {
     match unit_prop(unsat_clauses, trail) {
         // Conflict at level zero is unrecoverable
-        Err(_) if trail.dec_level() == 0 => {
+        Err(()) if trail.dec_level() == 0 => {
             Err(())
         },
         // Learn from a conflict after level zero
-        Err(conflict) => {
-            let (uip, b_set) = find_uip(conflict, trail);
+        Err(()) => {
+            let cut_set = find_uip_cut_set(trail);
 
             // Construct the reason set, i.e. the set of all nodes in the trail
             // that have an edge connecting them to a member of the B set.
             let mut reason: HashSet<Lit> = HashSet::new();
-            b_set.iter()
+            cut_set.iter()
                 .for_each(|&l| {
                     trail.get_parents(&l).iter()
-                        .filter(|p| !b_set.contains(p))
+                        .filter(|p| !cut_set.contains(p))
                         .for_each(|&p| { reason.insert(p); });
                 });
 
             // Make the cut
-            b_set.iter()
+            cut_set.iter()
                 .for_each(|l| trail.remove(l));
 
             // Learn the reason clause
@@ -105,14 +109,14 @@ fn unit_prop_and_learn(unsat_clauses: &Vec<&Clause>,
     }
 }
 
-fn backtrack(trail: &mut Trail) -> Option<Lit> {
+fn backtrack(trail: &mut Trail) {
     // Remove all nodes later than current decision level - 2
     let mut seen_levels = 0;
     loop {
         let top = trail.pop();
 
         match top {
-            None => { break None; },
+            None => { break; },
             Some(TrailNode { decorator: TrailNodeDecorator::Decision, ..}) => {
                 seen_levels += 1;
             },
@@ -120,24 +124,23 @@ fn backtrack(trail: &mut Trail) -> Option<Lit> {
         }
 
         if seen_levels == 2 {
-            break Some(top.unwrap().lit);
+            break;
         }
     }
 }
 
-fn find_uip(conflict_var: Var, trail: &Trail) -> (Lit, HashSet<Lit>) {
+fn find_uip_cut_set(trail: &Trail) -> HashSet<Lit> {
     let scope = trail.get_latest_decision_children();
 
     let mut track: HashSet<Lit> = HashSet::new();
-    track.insert(conflict_var);
-    track.insert(-conflict_var);
+    track.insert(KAPPA);
 
-    let mut b_set: HashSet<Lit> = HashSet::new();
+    let mut cut_set: HashSet<Lit> = HashSet::new();
 
-    while track.len() != 1 {
+    loop {
         let next = trail.get_latest_in_set(&track);
 
-        b_set.insert(next);
+        cut_set.insert(next);
 
         track.remove(&next);
         let parents = trail.get_parents(&next);
@@ -146,13 +149,17 @@ fn find_uip(conflict_var: Var, trail: &Trail) -> (Lit, HashSet<Lit>) {
             .for_each(|&p| {
                 track.insert(p);
             });
+
+        if track.len() == 1 {
+            break;
+        }
     }
 
-    (track.iter().next().unwrap().clone(), b_set)
+    cut_set
 }
 
 fn unit_prop<'a>(unsat_clauses: &Vec<&Clause>,
-                 trail: &mut Trail) -> Result<(), Var> {
+                 trail: &mut Trail) -> Result<(), ()> {
     // Perform unit propagation until there are no unit clauses
     loop {
         // Refine our search to only the unit clauses
@@ -179,8 +186,8 @@ fn unit_prop<'a>(unsat_clauses: &Vec<&Clause>,
                 match conflicting_clause {
                     Some(&&conflicting) => {
                         trail.push(*unit, TrailNodeDecorator::Clause(clause.clone()));
-                        trail.push(-unit, TrailNodeDecorator::Clause(conflicting.clone()));
-                        break Err(var_of_lit(&unit));
+                        trail.push(KAPPA, TrailNodeDecorator::Clause(conflicting.clone()));
+                        break Err(());
                     }
                     None => {}, // Empty
                 }
