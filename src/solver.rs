@@ -21,52 +21,44 @@ pub fn solve(cnf: &mut Cnf) -> Result<HashSet<Lit>, ()> {
 
 fn cdcl(cnf: &mut Cnf, trail: &mut Trail)
     -> Result<HashSet<Lit>, ()> {
+    loop {
+        // Unit prop until we no longer learn a new clause
+        loop {
+            // Find all unsatisfied clauses
+            let unsat_clauses: Vec<&Clause> = cnf.clauses().iter()
+                .filter(|clause| is_clause_unsat(clause, &trail))
+                .collect();
 
-    // Find all unsatisfied clauses
-    let unsat_clauses: Vec<&Clause> = cnf.clauses().iter()
-        .filter(|clause| is_clause_unsat(clause, &trail))
-        .collect();
-
-    // Initial unit prop, to handle possible learned clause from last iteration
-    match unit_prop_and_learn(&unsat_clauses, trail) {
-        Err(()) => { return Err(()); }, // UNSAT
-        Ok(Some(clause)) => { // Learned a new clause
-            cnf.add_clause(clause);
+            // Unit prop
+            match unit_prop_and_learn(&unsat_clauses, trail) {
+                Err(()) => { return Err(()); }, // UNSAT
+                Ok(Some(clause)) => { // Learned a new clause
+                    cnf.add_clause(clause);
+                }
+                Ok(None) => { // Propagated without conflicts
+                    break;
+                }
+            }
         }
-        Ok(None) => {} // Propagated without conflicts
-    }
 
-    // Find all unsatisfied clauses (again)
-    let unsat_clauses: Vec<&Clause> = cnf.clauses().iter()
-        .filter(|clause| is_clause_unsat(clause, &trail))
-        .collect();
-
-    // Find a literal to make an arbitrary decision on
-    let next_choice;
-    match get_next_unassigned(cnf, &trail) {
-        // If there are no unassigned variables, then we're done
-        // NOTE: There cannot be an unsat, fully-assigned clause at this point
-        None => {
-            return Ok(trail.get_assignments());
-        },
-        // Make an arbitrary decision on some undecided variable
-        Some(&lit) => {
-            next_choice = lit;
-        },
-    }
-
-    // Assign our guess
-    trail.push(next_choice, TrailNodeDecorator::Decision);
-
-    match unit_prop_and_learn(&unsat_clauses, trail) {
-        Err(()) => { return Err(()); }, // UNSAT
-        Ok(Some(clause)) => { // Learned a new clause
-            cnf.add_clause(clause);
+        // Find a literal to make an arbitrary decision on
+        // TODO: Get next unassigned lit from unsat clauses
+        let next_choice;
+        match get_next_unassigned(cnf, &trail) {
+            // If there are no unassigned variables, then we're done
+            // There will never be an unsat fully-assigned clause at this point
+            None => {
+                return Ok(trail.get_assignments());
+            },
+            // Make an arbitrary decision on some undecided variable
+            Some(&lit) => {
+                next_choice = lit;
+            },
         }
-        Ok(None) => {} // Propagated without conflicts
-    }
 
-    cdcl(cnf, trail)
+        // Assign our guess
+        trail.push(next_choice, TrailNodeDecorator::Decision);
+    }
 }
 
 fn unit_prop_and_learn(unsat_clauses: &Vec<&Clause>,
@@ -181,7 +173,9 @@ fn unit_prop<'a>(unsat_clauses: &Vec<&Clause>,
                     .find(|clause|
                         clause.iter()
                             .any(|lit|
-                                !trail.contains_node(lit) && !trail.contains_node(&-lit) && unit.eq(&-lit)));
+                                !trail.contains_node(lit) &&
+                                    !trail.contains_node(&-lit) &&
+                                    unit.eq(&-lit)));
 
                 match conflicting_clause {
                     Some(&&conflicting) => {
