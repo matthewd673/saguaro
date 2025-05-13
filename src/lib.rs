@@ -1,30 +1,23 @@
-mod cnf;
 mod parser;
+mod cnf;
 mod solver;
 mod trail;
 
 use std::collections::HashSet;
-use std::env;
-use std::fs;
+use wasm_bindgen::prelude::*;
 use crate::cnf::Lit;
 
-fn main() {
-    // Get filename
-    let filename = env::args().skip(1).next();
-    if matches!(filename, None) {
-        println!("usage: saguaro <cnf file>");
-        return;
+#[wasm_bindgen]
+pub fn solve_cnf(str: String) -> String {
+    let mut cnf;
+    match parser::parse(str) {
+        Some(f) => { cnf = f; },
+        _ => { // TODO: Proper error handling
+            return String::from("Syntax error in CNF");
+        },
     }
 
-    // Load and parse CNF file
-    let contents = fs::read_to_string(filename.unwrap())
-        .expect("Failed to read cnf file");
-    let mut cnf = parser::parse(contents)
-        .expect("Failed to parse cnf");
-
-    // Solve
-    let solution = get_solution(solver::solve(&mut cnf), cnf.num_vars());
-    println!("{solution}");
+    get_solution(solver::solve(&mut cnf), cnf.num_vars())
 }
 
 /**
