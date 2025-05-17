@@ -1,11 +1,7 @@
-mod parser;
-mod cnf;
-mod solver;
-mod trail;
-
 use std::collections::{HashMap, HashSet};
 use wasm_bindgen::prelude::*;
-use crate::cnf::{Cnf, Clause, Lit};
+use saguaro::{solver};
+use saguaro::cnf::{Cnf, Clause, Lit};
 
 #[wasm_bindgen]
 pub struct Formula {

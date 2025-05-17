@@ -1,12 +1,8 @@
-mod cnf;
-mod parser;
-mod solver;
-mod trail;
-
 use std::collections::HashSet;
 use std::env;
 use std::fs;
-use crate::cnf::Lit;
+use saguaro::{parser, solver};
+use saguaro::cnf::Lit;
 
 fn main() {
     // Get filename

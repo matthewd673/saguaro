@@ -1,24 +1,11 @@
-[package]
-name = "saguaro"
+[workspace]
+members = ["saguaro", "saguaro_cli", "saguaro_web"]
+resolver = "3"
+
+[workspace.package]
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Matthew Daly"]
 license = "GPL-3.0-only"
 repository = "https://github.com/matthewd673/saguaro"
 description = "Saguaro is a CDCL SAT solver"
-
-[lib]
-name = "saguaro"
-path = "src/lib.rs"
-crate-type = ["cdylib", "rlib"]
-
-[[bin]]
-name = "saguaro_bin"
-path = "src/bin.rs"
-
-[dependencies]
-wasm-bindgen = "0.2.100"
-js-sys = "0.3.77"
-
-[dev-dependencies]
-rstest = "0.25.0"
