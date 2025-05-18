@@ -2,6 +2,7 @@
 mod tests;
 
 use std::collections::HashSet;
+use crate::assignments::Assignments;
 use crate::cnf::{Clause, Cnf, Lit, Var};
 use crate::trail::{Trail, TrailNode, TrailNodeDecorator};
 
@@ -26,7 +27,7 @@ fn cdcl(cnf: &mut Cnf, trail: &mut Trail)
         loop {
             // Find all unsatisfied clauses
             let unsat_clauses: Vec<&Clause> = cnf.clauses().iter()
-                .filter(|clause| is_clause_unsat(clause, &trail))
+                .filter(|clause| is_clause_unsat(clause, trail))
                 .collect();
 
             // Unit prop
@@ -44,7 +45,7 @@ fn cdcl(cnf: &mut Cnf, trail: &mut Trail)
         // Find a literal to make an arbitrary decision on
         // TODO: Get next unassigned lit from unsat clauses
         let next_choice;
-        match get_next_unassigned(cnf, &trail) {
+        match get_next_unassigned(cnf, trail) {
             // If there are no unassigned variables, then we're done
             // There will never be an unsat fully-assigned clause at this point
             None => {
@@ -165,7 +166,7 @@ fn unit_prop<'a>(unsat_clauses: &Vec<&Clause>,
             Some(&&clause) => {
                 let unit = clause.iter()
                     .find(|&lit|
-                        !trail.contains_node(lit) && !trail.contains_node(&-lit))
+                        !trail.is_sat(lit) && !trail.is_sat(&-lit))
                     .unwrap();
 
                 // Check if there is a conflicting unit literal
@@ -173,8 +174,8 @@ fn unit_prop<'a>(unsat_clauses: &Vec<&Clause>,
                     .find(|clause|
                         clause.iter()
                             .any(|lit|
-                                !trail.contains_node(lit) &&
-                                    !trail.contains_node(&-lit) &&
+                                !trail.is_sat(lit) &&
+                                    !trail.is_sat(&-lit) &&
                                     unit.eq(&-lit)));
 
                 match conflicting_clause {
@@ -237,27 +238,26 @@ fn get_inverse_clause(set: &HashSet<Lit>) -> Clause {
         .collect()
 }
 
-fn get_next_unassigned<'a>(cnf: &'a Cnf, trail: &Trail) -> Option<&'a Lit> {
+fn get_next_unassigned<'a>(cnf: &'a Cnf,
+                           assign: &dyn Assignments) -> Option<&'a Lit> {
     cnf.clauses().iter()
-        .filter(|clause| is_clause_unsat(clause, trail))
+        .filter(|clause| is_clause_unsat(clause, assign))
         .flatten()
-        .find(|&lit|
-            !trail.contains_node(lit) && !trail.contains_node(&-lit))
+        .find(|&lit| !assign.is_sat(lit) && !assign.is_sat(&-lit))
 }
 
-fn is_clause_unsat(clause: &Clause, trail: &Trail) -> bool {
-    !clause.iter().any(|lit| trail.contains_node(lit))
+fn is_clause_unsat(clause: &Clause, assign: &dyn Assignments) -> bool {
+    !clause.iter().any(|lit| assign.is_sat(lit))
 }
 
-fn is_clause_unit(clause: &Clause, trail: &Trail) -> bool {
+fn is_clause_unit(clause: &Clause, assign: &dyn Assignments) -> bool {
     clause.iter()
-        .filter(|&lit|
-            !trail.contains_node(lit) && !trail.contains_node(&-lit))
+        .filter(|&lit| !assign.is_sat(lit) && !assign.is_sat(&-lit))
         .count() == 1
 }
 
 /**
- * Given a literal value, get the variable.
+ * Given a literal, get the variable.
  */
 fn var_of_lit(lit: &Lit) -> Var {
     lit.abs()

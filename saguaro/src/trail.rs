@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
+use crate::assignments::Assignments;
 use crate::cnf::{Clause, Lit};
 
 #[derive(Debug)]
@@ -70,11 +71,6 @@ impl Trail {
         self.dec_level
     }
 
-    pub fn contains_node(&self, lit: &Lit) -> bool {
-        self.list.iter()
-            .any(|n| lit.eq(&n.lit))
-    }
-
     pub fn get_latest_decision_children(&self) -> HashSet<Lit> {
         let mut children = HashSet::new();
 
@@ -133,12 +129,6 @@ impl Trail {
         self.list.remove(ind);
     }
 
-    pub fn get_assignments(&self) -> HashSet<Lit> {
-        self.list.iter()
-            .map(|n| n.lit)
-            .collect()
-    }
-
     // For debugging
     pub fn to_graphviz(&self) -> String {
         let edges = self.list.iter()
@@ -159,5 +149,18 @@ impl Trail {
             });
 
         format!("digraph G {{ {dec_nodes} {edges} }}")
+    }
+}
+
+impl Assignments for Trail {
+    fn is_sat(&self, lit: &Lit) -> bool {
+        self.list.iter()
+            .any(|n| lit.eq(&n.lit))
+    }
+
+    fn get_assignments(&self) -> HashSet<Lit> {
+        self.list.iter()
+            .map(|n| n.lit)
+            .collect()
     }
 }
