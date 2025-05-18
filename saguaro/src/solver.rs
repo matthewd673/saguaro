@@ -3,11 +3,8 @@ mod tests;
 
 use std::collections::HashSet;
 use crate::assignments::Assignments;
-use crate::cnf::{Clause, Cnf, Lit, Var};
-use crate::trail::{Trail, TrailNode, TrailNodeDecorator};
-
-// Kappa denotes the conflict node
-const KAPPA: Lit = 0;
+use crate::cnf::{Clause, Cnf, Lit};
+use crate::trail::{Trail, TrailNode, TrailNodeDecorator, KAPPA};
 
 pub fn eval(cnf: &Cnf, assign: &HashSet<Lit>) -> bool {
     cnf.clauses().iter()
@@ -15,9 +12,8 @@ pub fn eval(cnf: &Cnf, assign: &HashSet<Lit>) -> bool {
 }
 
 pub fn solve(cnf: &mut Cnf) -> Result<HashSet<Lit>, ()> {
-    // let mut assign = pre_process(cnf);
-    // let mut assign = Assignments::new(cnf.num_vars());
-    cdcl(cnf, &mut Trail::new())
+    let mut trail = Trail::new(cnf.num_vars());
+    cdcl(cnf, &mut trail)
 }
 
 fn cdcl(cnf: &mut Cnf, trail: &mut Trail)
@@ -195,43 +191,6 @@ fn unit_prop<'a>(unsat_clauses: &Vec<&Clause>,
     }
 }
 
-// fn pre_process(cnf: &Cnf) -> Assignments {
-//     let mut assign = Assignments::new(cnf.num_vars());
-//     pure_lit_assign(cnf, &mut assign);
-//     assign
-// }
-
-// fn pure_lit_assign(cnf: &Cnf, assign: &mut Assignments) {
-//     let mut seen_lits: Vec<bool> = vec![false; cnf.num_vars() * 2];
-//     cnf.clauses().iter()
-//         .filter(|clause| is_clause_unsat(clause, assign))
-//         .flatten()
-//         .for_each(|lit| {
-//             let ind =
-//                 (lit.abs() - 1) as usize * 2 + if lit < &0 { 0 } else { 1 };
-//             seen_lits[ind] = true;
-//         });
-//
-//     let mut i = 0;
-//     while i < seen_lits.len() {
-//         let var = i as i32 / 2 + 1;
-//         // Pure, negative
-//         if seen_lits[i] && !seen_lits[i + 1] {
-//             assign.put(&-var);
-//         }
-//         // Pure, positive
-//         else if !seen_lits[i] && seen_lits[i + 1] {
-//             assign.put(&var);
-//         }
-//         // Unused
-//         else if !seen_lits[i] && !seen_lits[i + 1] {
-//             assign.put(&-var);
-//         }
-//
-//         i += 2;
-//     }
-// }
-
 fn get_inverse_clause(set: &HashSet<Lit>) -> Clause {
     set.iter()
         .map(|l| -l)
@@ -254,11 +213,4 @@ fn is_clause_unit(clause: &Clause, assign: &dyn Assignments) -> bool {
     clause.iter()
         .filter(|&lit| !assign.is_sat(lit) && !assign.is_sat(&-lit))
         .count() == 1
-}
-
-/**
- * Given a literal, get the variable.
- */
-fn var_of_lit(lit: &Lit) -> Var {
-    lit.abs()
 }

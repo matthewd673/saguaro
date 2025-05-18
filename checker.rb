@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-SAGUARO = './target/release/saguaro'
+SAGUARO = './target/release/saguaro_cli'
 Z3 = 'z3'
 
 SAT = 's SATISFIABLE'

@@ -3,6 +3,9 @@ use std::fmt::{Display, Formatter};
 use crate::assignments::Assignments;
 use crate::cnf::{Clause, Lit};
 
+// Kappa denotes the conflict node
+pub const KAPPA: Lit = 0;
+
 #[derive(Debug)]
 pub enum TrailNodeDecorator {
     Decision,
@@ -35,13 +38,15 @@ pub struct TrailNode {
 #[derive(Debug)]
 pub struct Trail {
     list: Vec<TrailNode>,
+    assign: Vec<bool>,
     dec_level: usize,
 }
 
 impl Trail {
-    pub fn new() -> Self {
+    pub fn new(num_vars: usize) -> Self {
         Trail {
-            list: Vec::new(),
+            list: Vec::with_capacity(num_vars + 1), // + 1 for conflict
+            assign: vec!(false; num_vars * 2),
             dec_level: 0,
         }
     }
@@ -52,19 +57,42 @@ impl Trail {
         }
 
         self.list.push(TrailNode { lit, decorator });
+        self.put_assign(&lit, true);
     }
 
     pub fn pop(&mut self) -> Option<TrailNode> {
         let top = self.list.pop();
 
-        match top {
-            Some(TrailNode { decorator: TrailNodeDecorator::Decision, .. }) => {
-                self.dec_level -= 1;
+        match &top {
+            Some(TrailNode {
+                lit,
+                decorator,
+            }) => {
+                if matches!(decorator, TrailNodeDecorator::Decision) {
+                    self.dec_level -= 1;
+                }
+                self.put_assign(lit, false);
             },
             _ => {},
         }
 
         top
+    }
+
+    pub fn remove(&mut self, lit: &Lit) {
+        let ind = self.list.iter()
+            .position(|n| lit.eq(&n.lit))
+            .unwrap();
+        self.list.remove(ind);
+        self.put_assign(lit, false);
+    }
+
+    fn put_assign(&mut self, lit: &Lit, assigned: bool) {
+        if lit == &KAPPA {
+            return;
+        }
+
+        self.assign[Self::get_assign_ind(lit)] = assigned;
     }
 
     pub fn dec_level(&self) -> usize {
@@ -122,15 +150,30 @@ impl Trail {
         }
     }
 
-    pub fn remove(&mut self, lit: &Lit) {
-        let ind = self.list.iter()
-            .position(|n| lit.eq(&n.lit))
-            .unwrap();
-        self.list.remove(ind);
+    fn get_assign_ind(lit: &Lit) -> usize {
+        assert_ne!(lit, &0);
+        (if lit < &0 {
+            ((-lit) - 1) * 2
+        } else {
+            (lit - 1) * 2 + 1
+        }) as usize
+    }
+}
+
+impl Assignments for Trail {
+    fn is_sat(&self, lit: &Lit) -> bool {
+        self.assign[Self::get_assign_ind(lit)]
     }
 
-    // For debugging
-    pub fn to_graphviz(&self) -> String {
+    fn get_assignments(&self) -> HashSet<Lit> {
+        self.list.iter()
+            .map(|n| n.lit)
+            .collect()
+    }
+}
+
+impl Display for Trail {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let edges = self.list.iter()
             .fold(String::new(), |acc, node| {
                 let edges = self.get_parents(&node.lit).iter()
@@ -148,19 +191,6 @@ impl Trail {
                 format!("{acc}{} [color=\"gold\"]", node.lit)
             });
 
-        format!("digraph G {{ {dec_nodes} {edges} }}")
-    }
-}
-
-impl Assignments for Trail {
-    fn is_sat(&self, lit: &Lit) -> bool {
-        self.list.iter()
-            .any(|n| lit.eq(&n.lit))
-    }
-
-    fn get_assignments(&self) -> HashSet<Lit> {
-        self.list.iter()
-            .map(|n| n.lit)
-            .collect()
+        f.write_fmt(format_args!("digraph G {{ {dec_nodes} {edges} }}"))
     }
 }

@@ -6,7 +6,7 @@ require 'timeout'
 CHECKER_ID = "<CHECKER>"
 
 SOLVERS = {
-  'saguaro' => './target/release/saguaro $f',
+  'saguaro' => './target/release/saguaro_cli $f',
   'z3' => 'z3 $f',
   'minisat' => 'minisat $f',
   CHECKER_ID => './checker.rb $f'
