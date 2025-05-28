@@ -89,10 +89,10 @@ fn solution_to_js_obj(solution: &Result<HashSet<Lit>, ()>,
     let js_obj_map = js_sys::Map::new();
     match solution {
         Ok(assign) => {
-            let assign_js_map = assignments_to_js_map(&assign, var_map);
+            let assign_js_array = assignments_to_js_array(&assign, var_map);
 
             js_obj_map.set(&sat_key, &JsValue::TRUE);
-            js_obj_map.set(&assignments_key, &assign_js_map);
+            js_obj_map.set(&assignments_key, &assign_js_array);
         }
         Err(()) => {
             js_obj_map.set(&sat_key, &JsValue::FALSE);
@@ -102,16 +102,17 @@ fn solution_to_js_obj(solution: &Result<HashSet<Lit>, ()>,
     js_sys::Object::from_entries(&JsValue::from(js_obj_map)).unwrap()
 }
 
-fn assignments_to_js_map(assign: &HashSet<Lit>,
-                         var_map: &HashMap<i32, String>) -> js_sys::Map {
-    let assign_js_map = js_sys::Map::new();
-    (1..var_map.len() as i32 + 1).for_each(|var| {
-        let var_name = var_map.get(&var).unwrap();
+fn assignments_to_js_array(assign: &HashSet<Lit>,
+                           var_map: &HashMap<i32, String>) -> js_sys::Array {
+    let assign_js_array = js_sys::Array::new();
 
-        let key = JsValue::from(var_name);
-        let value = JsValue::from(assign.contains(&var));
-        assign_js_map.set(&key, &value);
-    });
+    assign.iter()
+        .filter(|lit| lit > &&0)
+        .map(|lit| var_map.get(lit).unwrap())
+        .map(|var_name| JsValue::from(var_name))
+        .for_each(|var_name| {
+            assign_js_array.push(&var_name);
+        });
 
-    assign_js_map
+    assign_js_array
 }

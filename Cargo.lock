@@ -249,21 +249,21 @@ checksum = "eded382c5f5f786b989652c49544c4877d9f015cc22e145a5ea8ea66c2921cd2"
 
 [[package]]
 name = "saguaro"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rstest",
 ]
 
 [[package]]
 name = "saguaro_cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "saguaro",
 ]
 
 [[package]]
 name = "saguaro_web"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "js-sys",
  "saguaro",
