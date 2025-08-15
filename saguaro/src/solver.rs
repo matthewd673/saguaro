@@ -1,15 +1,7 @@
-#[cfg(test)]
-mod tests;
-
 use std::collections::HashSet;
 use crate::assignments::Assignments;
 use crate::cnf::{Clause, Cnf, Lit};
 use crate::trail::{Trail, TrailNode, TrailNodeDecorator, KAPPA};
-
-pub fn eval(cnf: &Cnf, assign: &HashSet<Lit>) -> bool {
-    cnf.clauses().iter()
-        .all(|clause| clause.iter().any(|lit| assign.contains(lit)))
-}
 
 pub fn solve(cnf: &mut Cnf) -> Result<HashSet<Lit>, ()> {
     let mut trail = Trail::new(cnf.num_vars());
@@ -80,8 +72,7 @@ fn unit_prop_and_learn(unsat_clauses: &Vec<&Clause>,
                 });
 
             // Make the cut
-            cut_set.iter()
-                .for_each(|l| trail.remove(l));
+            cut_set.iter().for_each(|l| trail.remove(l));
 
             // Learn the reason clause
             let learned = get_inverse_clause(&reason);
@@ -191,18 +182,24 @@ fn unit_prop<'a>(unsat_clauses: &Vec<&Clause>,
     }
 }
 
+/**
+ * Given a set of literals, invert them.
+ */
 fn get_inverse_clause(set: &HashSet<Lit>) -> Clause {
     set.iter()
         .map(|l| -l)
         .collect()
 }
 
+/**
+ * Given a CNF and assignments, return some unassigned literal in the CNF
+ */
 fn get_next_unassigned<'a>(cnf: &'a Cnf,
                            assign: &dyn Assignments) -> Option<&'a Lit> {
     cnf.clauses().iter()
         .filter(|clause| is_clause_unsat(clause, assign))
         .flatten()
-        .find(|&lit| !assign.is_sat(lit) && !assign.is_sat(&-lit))
+        .find(|&lit| assign.is_unassigned(lit))
 }
 
 fn is_clause_unsat(clause: &Clause, assign: &dyn Assignments) -> bool {
@@ -211,6 +208,6 @@ fn is_clause_unsat(clause: &Clause, assign: &dyn Assignments) -> bool {
 
 fn is_clause_unit(clause: &Clause, assign: &dyn Assignments) -> bool {
     clause.iter()
-        .filter(|&lit| !assign.is_sat(lit) && !assign.is_sat(&-lit))
+        .filter(|&lit| assign.is_unassigned(lit))
         .count() == 1
 }

@@ -9,10 +9,7 @@ pub struct Cnf {
 
 impl Cnf {
     pub fn new(clauses: Vec<Clause>, num_vars: usize) -> Self {
-        Cnf {
-            clauses,
-            num_vars,
-        }
+        Cnf { clauses, num_vars }
     }
 
     pub fn clauses(&self) -> &Vec<Clause> {

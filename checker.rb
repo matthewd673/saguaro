@@ -2,18 +2,18 @@
 # frozen_string_literal: true
 
 SAGUARO = './target/release/saguaro_cli'
-Z3 = 'z3'
+ORACLE = 'z3'
 
 SAT = 's SATISFIABLE'
 UNSAT = 's UNSATISFIABLE'
 
 def check(filename)
   saguaro_ans = `#{SAGUARO} #{filename}`
-  z3_ans = `#{Z3} #{filename}`
+  oracle_ans = `#{ORACLE} #{filename}`
 
   # TODO: Check that saguaro's satisfying assignments are valid
-  (saguaro_ans.include?(SAT) && z3_ans.include?(SAT)) ||
-    (saguaro_ans.include?(UNSAT) && z3_ans.include?(UNSAT))
+  (saguaro_ans.include?(SAT) && oracle_ans.include?(SAT)) ||
+    (saguaro_ans.include?(UNSAT) && oracle_ans.include?(UNSAT))
 end
 
 def main

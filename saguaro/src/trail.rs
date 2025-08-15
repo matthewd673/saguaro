@@ -3,10 +3,9 @@ use std::fmt::{Display, Formatter};
 use crate::assignments::Assignments;
 use crate::cnf::{Clause, Lit};
 
-// Kappa denotes the conflict node
+/// Kappa denotes the conflict node.
 pub const KAPPA: Lit = 0;
 
-#[derive(Debug)]
 pub enum TrailNodeDecorator {
     Decision,
     Clause(Clause),
@@ -29,13 +28,11 @@ impl Display for TrailNodeDecorator {
     }
 }
 
-#[derive(Debug)]
 pub struct TrailNode {
     pub lit: Lit,
     pub decorator: TrailNodeDecorator,
 }
 
-#[derive(Debug)]
 pub struct Trail {
     list: Vec<TrailNode>,
     assign: Vec<bool>,
